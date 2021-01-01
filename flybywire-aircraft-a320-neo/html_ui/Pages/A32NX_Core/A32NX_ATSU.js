@@ -271,7 +271,7 @@ const addWaypointAsync = (fix, mcdu, routeIdent, via) => {
                     mcdu.flightPlanManager.addWaypoint(waypoint.icao, wpIndex, () => {
                         console.log("Inserted waypoint: " + routeIdent);
                         res(true);
-                    });
+                    }).catch(console.error);
                 } else {
                     console.log('NOT IN DATABASE ' + routeIdent);
                     mcdu.addNewMessage(NXSystemMessages.notInDatabase);
@@ -394,5 +394,5 @@ function getWaypointByIdentAndCoords(mcdu, ident, coords, callback) {
         }
 
         return callback(undefined);
-    });
+    }).catch(console.error);
 }
