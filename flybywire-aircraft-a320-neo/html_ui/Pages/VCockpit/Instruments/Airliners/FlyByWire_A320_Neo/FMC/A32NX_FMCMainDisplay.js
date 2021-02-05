@@ -168,6 +168,7 @@ class FMCMainDisplay extends BaseAirliners {
         this.fmsUpdateThrottler = new UpdateThrottler(250);
         this._progBrgDist = undefined;
         this._progBrgDistUpdateThrottler = new UpdateThrottler(2000);
+        this.stepClimbs = [];
     }
 
     Init() {
@@ -289,6 +290,7 @@ class FMCMainDisplay extends BaseAirliners {
             this.updateRadioNavState();
             this.updateGPSMessage();
             this.updateDisplayedConstraints();
+            this.updateStepClimbs();
         }
 
         this.A32NXCore.update();
@@ -1125,6 +1127,53 @@ class FMCMainDisplay extends BaseAirliners {
         }
         this.cruiseFlightLevel = _targetFl;
         this._cruiseFlightLevel = _targetFl;
+    }
+
+    updateStepClimbs() {
+        const enrouteWaypoints = this.flightPlanManager.getEnRouteWaypoints();
+
+        let i = this.stepClimbs.length;
+        while (i--) {
+            const wp = this._getStepWaypoint(this.stepClimbs[i].waypoint, enrouteWaypoints);
+            if (wp === undefined) {
+                // TODO delete step if engine out, inserting another step??, overflying step waypoint without climbing, or step cannot be flown (too close to ToD)
+                if (this.cruiseFlightLevel < this.stepClimbs[i].level) {
+                    this.addNewMessage(NXSystemMessages.stepDeleted);
+                }
+                this.deleteStepClimb(i);
+                continue;
+            }
+            if (this.stepClimbs[i].level > this.maxCruiseFL) {
+                this.addNewMessage(NXSystemMessages.stepAboveMaxFl);
+            }
+            this.stepClimbs[i].eta = wp.liveUTCTo;
+            this.stepClimbs[i].ete = wp.liveETATo;
+            this.stepClimbs[i].dist = wp.liveDistanceTo;
+        }
+        this.stepClimbs.sort((left, right) => {
+            let leftIndex = 0;
+            let rightIndex = 0;
+            for (let i = 0; i < enrouteWaypoints.length; i++) {
+                if (enrouteWaypoints[i].ident == left.waypoint) {
+                    leftIndex = i;
+                } else if (enrouteWaypoints[i].ident == right.waypoint) {
+                    rightIndex = i;
+                }
+            }
+            return leftIndex - rightIndex;
+        });
+
+        if (!this.isAllEngineOn()) {
+            return;
+        }
+
+        if (this.stepClimbs.length > 0) {
+            const stepWp = this._getStepWaypoint(this.stepClimbs[0].waypoint, enrouteWaypoints);
+            if (stepWp.liveDistanceTo <= 20 && !this.stepClimbs[0].triggered && this.currentFlightPhase == FlightPhase.FLIGHT_PHASE_CRUISE) {
+                this.stepClimbs[0].triggered = true;
+                this.addNewMessage(NXSystemMessages.stepAhead); // TODO auto-clear?
+            }
+        }
     }
 
     /* END OF FMS EVENTS */
@@ -3507,6 +3556,88 @@ class FMCMainDisplay extends BaseAirliners {
 
     get progWaypointIdent() {
         return this._progBrgDist ? this._progBrgDist.ident : undefined;
+    }
+
+    _getStepWaypoint(waypoint, enrouteWaypoints) {
+        for (let i = 0; i < enrouteWaypoints.length; i++) {
+            if (enrouteWaypoints[i].ident === waypoint) {
+                return enrouteWaypoints[i];
+            }
+        }
+        return undefined;
+    }
+
+    clearStepClimbs() {
+        this.stepClimbs = [];
+    }
+
+    addStepClimb(waypoint, level) {
+        // TODO check if lower than previous step
+        if (this._getStepWaypoint(waypoint, this.flightPlanManager.getEnRouteWaypoints()) !== undefined) {
+            for (let i = 0; i < this.stepClimbs.length; i++) {
+                if (this.stepClimbs[i].waypoint == waypoint) {
+                    this.addNewMessage(NXSystemMessages.notAllowed);
+                    return false;
+                }
+            }
+            this.stepClimbs.push({
+                waypoint: waypoint,
+                level: level,
+                triggered: false,
+                eta: NaN,
+                ete: NaN,
+                dist: NaN
+            });
+            return true;
+        } else {
+            return this.addNewMessage(NXSystemMessages.notAllowed);
+        }
+    }
+
+    deleteStepClimb(waypoint) {
+        var i = this.stepClimbs.length;
+        while (i--) {
+            if (this.stepClimbs[i].waypoint == waypoint) {
+                this.stepClimbs.splice(i, 1);
+            }
+        }
+    }
+
+    tryAddStepClimb(input) {
+        const bits = input.split("/");
+        if (bits.length < 2) {
+            return this.addNewMessage(NXFictionalMessages.notYetImplemented);
+        } else if (bits.length > 2) {
+            return this.addNewMessage(NXSystemMessages.formatError);
+        }
+        // TODO further validation of WP and FL format
+        let level = parseInt(bits[0]);
+        if (level > 450) {
+            level /= 100;
+        }
+        if (level > 450) {
+            return this.addNewMessage(NXSystemMessages.notAllowed);
+        }
+        if (level < this.cruiseFlightLevel) {
+            return this.addNewMessage(NXSystemMessages.notAllowed);
+        }
+        const wp = bits[1];
+        return this.addStepClimb(wp, level);
+    }
+
+    tryUpdateStepClimb(idx, input) {
+        if (input.includes("/")) {
+            return this.addNewMessage(NXSystemMessages.formatError);
+        }
+        let level = parseInt(input);
+        if (level > 450) {
+            level /= 100;
+        }
+        if (level > 450) {
+            return this.addNewMessage(NXSystemMessages.notAllowed);
+        }
+        this.stepClimbs[idx].level = level;
+        return true;
     }
 
     /* END OF MCDU GET/SET METHODS */

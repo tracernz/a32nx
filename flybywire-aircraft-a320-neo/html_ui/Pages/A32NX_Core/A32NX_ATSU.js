@@ -171,6 +171,16 @@ const getSimBriefOfp = (mcdu, updateView) => {
             mcdu.simbrief["offTime"] = data.times.est_off;
             mcdu.simbrief["taxiFuel"] = mcdu.simbrief["units"] === 'kgs' ? data.fuel.taxi : lbsToKg(data.fuel.taxi);
             mcdu.simbrief["tripFuel"] = mcdu.simbrief["units"] === 'kgs' ? data.fuel.enroute_burn : lbsToKg(data.fuel.enroute_burn);
+            mcdu.simbrief["stepClimbs"] = [];
+            const stepParts = data.general.stepclimb_string.split("/");
+            if (stepParts.length % 2 == 0) {
+                // skip the first pair as that is the initial climb alt
+                for (let i = 2; i < stepParts.length; i += 2) {
+                    mcdu.simbrief["stepClimbs"].push([stepParts[i], parseInt(stepParts[i + 1])]);
+                }
+            } else {
+                console.warn(`Invalid stepclimb_string from SimBrief: ${data.stepclimb_string}`);
+            }
             mcdu.simbrief["sendStatus"] = "DONE";
 
             updateView();
@@ -221,7 +231,8 @@ const insertUplink = (mcdu) => {
         alternateIcao,
         avgTropopause,
         icao_airline,
-        flight_number
+        flight_number,
+        stepClimbs
     } = mcdu.simbrief;
 
     const fromTo = `${originIcao}/${destinationIcao}`;
@@ -241,6 +252,10 @@ const insertUplink = (mcdu) => {
 
             setTimeout(async () => {
                 await uplinkRoute(mcdu);
+                for (let i = 0; i < stepClimbs.length; i++) {
+                    const [waypoint, level] = stepClimbs[i];
+                    mcdu.addStepClimb(waypoint, level);
+                }
                 mcdu.addNewMessage(NXSystemMessages.aocActFplnUplink);
             }, mcdu.getDelayRouteChange());
 

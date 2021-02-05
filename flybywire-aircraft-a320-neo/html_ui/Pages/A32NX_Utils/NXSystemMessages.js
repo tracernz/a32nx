@@ -47,6 +47,9 @@ const NXSystemMessages = {
     notAllowed:             new McduMessage("NOT ALLOWED", false, false),
     notInDatabase:          new McduMessage("NOT IN DATABASE", false, false),
     selectDesiredSystem:    new McduMessage("SELECT DESIRED SYSTEM", false, false),
+    stepAboveMaxFl:         new McduMessage("STEP ABOVE MAX FL", false, true),
+    stepAhead:              new McduMessage("STEP AHEAD", false, true),
+    stepDeleted:            new McduMessage("STEP DELETED", false, true),
     uplinkInsertInProg:     new McduMessage("UPLINK INSERT IN PROG", false, true),
     vToDisagree:            new McduMessage("V1/VR/V2 DISAGREE", true, true),
     waitForSystemResponse:  new McduMessage("WAIT FOR SYSTEM RESPONSE", false, false)

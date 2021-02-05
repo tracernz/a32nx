@@ -502,7 +502,7 @@ class CDUPerformancePage {
         if (mcdu.currentFlightPhase === FmgcFlightPhases.CRUISE) {
             titleColor = "green";
         }
-        const isFlying = false;
+        const isFlying = mcdu.getIsFlying();
         let actModeCell = "SELECTED";
         if (mcdu.isAirspeedManaged()) {
             actModeCell = "MANAGED";
@@ -536,6 +536,38 @@ class CDUPerformancePage {
         if (isFlying) {
             timeLabel = "UTC";
         }
+
+        let stepAltsCell = "";
+        let nextStepLabel = "";
+        let nextStepCell = "";
+        let stepQueued = false;
+        let stepEstTime = "";
+        let stepDist = "";
+        if (mcdu.isAllEngineOn() || mcdu.currentFlightPhase < FlightPhase.FLIGHT_PHASE_TAKEOFF) {
+            stepAltsCell = "STEP ALTS>";
+            mcdu.rightInputDelay[4] = () => {
+                return mcdu.getDelaySwitchPage();
+            };
+            mcdu.onRightInput[4] = () => {
+                CDUStepAltsPage.Return = () => {
+                    CDUPerformancePage.ShowCRZPage(mcdu);
+                };
+                CDUStepAltsPage.ShowPage(mcdu);
+            };
+            if (mcdu.stepClimbs.length > 0) {
+                nextStepLabel = `AT ${mcdu.stepClimbs[0].waypoint}`;
+                nextStepCell = `{small}STEP TO{end} {green}FL${mcdu.stepClimbs[0].level.toFixed(0).padStart(3, "0")}{end}`;
+                if (isFinite(mcdu.stepClimbs[0].eta) && isFinite(mcdu.stepClimbs[0].dist)) {
+                    stepEstTime = FMCMainDisplay.secondsTohhmm(isFlying ? mcdu.stepClimbs[0].eta : mcdu.stepClimbs[0].ete) + "[color]green";
+                    stepDist = mcdu.stepClimbs[0].dist.toFixed(0) + "[color]green";
+                } else {
+                    stepEstTime = "----[color]inop";
+                    stepDist = "---[color]inop";
+                }
+                stepQueued = true;
+            }
+        } // TODO engine out drift down FL, TD during climb
+
         const bottomRowLabels = ["\xa0PREV", "NEXT\xa0"];
         const bottomRowCells = ["<PHASE", "PHASE>"];
         mcdu.leftInputDelay[5] = () => {
@@ -572,14 +604,14 @@ class CDUPerformancePage {
             ["CRZ[color]" + titleColor],
             ["ACT MODE", "EFOB", timeLabel],
             [actModeCell + "[color]green", "6.0[color]green", "----[color]green"],
-            ["CI"],
-            [costIndexCell + "[color]cyan"],
-            ["MANAGED"],
-            ["*" + managedSpeedCell + "[color]green"],
-            ["SELECTED"],
-            [selectedSpeedCell + "[color]cyan"],
-            ["", "DES CABIN RATE>"],
-            ["", "-350FT/MIN[color]green"],
+            ["CI", nextStepLabel],
+            [costIndexCell + "[color]cyan", nextStepCell],
+            ["MANAGED", stepQueued ? "DIST" : "", stepQueued ? timeLabel : ""],
+            ["*" + managedSpeedCell + "[color]green", stepDist, stepEstTime],
+            ["SELECTED", "DES CABIN RATE>"],
+            [selectedSpeedCell + "[color]cyan", "-350FT/MIN[color]green"],
+            ["", ""],
+            ["", stepAltsCell],
             bottomRowLabels,
             bottomRowCells
         ]);
