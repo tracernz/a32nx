@@ -31,6 +31,7 @@ class FlightPlanManager {
         this._currentFlightPlanApproachVersion = -1;
         FlightPlanManager.DEBUG_INSTANCE = this;
         this.instrument = _instrument;
+        SimVar.SetSimVarValue("A32NX_FLIGHT_PLAN_VERSION", "number", 0);
         this.registerListener();
     }
     addHardCodedConstraints(wp) {
@@ -1250,6 +1251,24 @@ class FlightPlanManager {
                 }
             }
         }
+    }
+    getDepartureRunwayIlsFrequency() {
+        const runway = this.getDepartureRunway();
+        if (runway) {
+            const origin = this.getOrigin();
+            if (origin && origin.infos instanceof AirportInfo) {
+                const airportInfo = origin.infos;
+                const frequency = airportInfo.frequencies.find(f => {
+                    return f.name.replace("RW0", "").replace("RW", "").indexOf(runway.designation) !== -1 &&
+                        f.name.indexOf("ILS") !== -1;
+                });
+                if (frequency) {
+                    //console.log(frequency.name, frequency.mhValue);
+                    return frequency.mhValue;
+                }
+            }
+        }
+        return NaN;
     }
     getDetectedCurrentRunway() {
         const origin = this.getOrigin();

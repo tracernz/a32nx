@@ -187,7 +187,7 @@ class FMCMainDisplay extends BaseAirliners {
     Init() {
         super.Init();
 
-        this.A32NXCore = new A32NX_Core();
+        this.A32NXCore = new A32NX_Core(this);
         this.A32NXCore.init(this._lastTime);
 
         this.dataManager = new FMCDataManager(this);
@@ -457,7 +457,55 @@ class FMCMainDisplay extends BaseAirliners {
 
     updateRadioNavState() {
         if (this.isPrimary) {
-            const radioNavOn = this.isRadioNavActive();
+            /*if (this.currentFlightPhase === FmgcFlightPhases.PREFLIGHT || this.currentFlightPhase === FmgcFlightPhases.TAKEOFF) {
+                const ils = this.flightPlanManager.getTakeoffIlsFrequency();
+                if (isFinite(ils) && !this._ilsFrequencyPilotEntered && this.ilsFrequency.toFixed(2) !== ils.toFixed(2)) {
+                    console.log(`Tuning ILS ${ils.toFixed(2)}`);
+                    this.connectIlsFrequency(ils);
+                }
+            }*/
+
+            /*const appr = this.flightPlanManager.getApproach();
+            if (appr) {
+                console.log(appr.name);
+            }*/
+
+            /*const dest = this.flightPlanManager.getDestination();
+            if (dest && dest.infos instanceof AirportInfo) {
+                dest.infos.UpdateNamedFrequencies();
+                const freqs = dest.infos.namedFrequencies;
+                for (let i = 0; i < freqs.length; i++) {
+                    console.log(freqs[i].name);
+                }
+            }*/
+
+            if (!this.vor1FreqIsPilotEntered && !this.vor1IdIsPilotEntered &&
+                this.A32NXCore.radioNavTuner.selectedDisplayVor &&
+                this.vor1Frequency.toFixed(2) != this.A32NXCore.radioNavTuner.selectedDisplayVor.frequency.toFixed(2)
+            ) {
+                this.vor1Frequency = this.A32NXCore.radioNavTuner.selectedDisplayVor.frequency;
+                this.vor1SelectedIdent = this.A32NXCore.radioNavTuner.selectedDisplayVor.ident;
+                this.radioNav.setVORActiveFrequency(1, this.vor1Frequency);
+            }
+
+            if (!this.vor2FreqIsPilotEntered && !this.vor2IdIsPilotEntered &&
+                this.A32NXCore.radioNavTuner.selectedDisplayVor &&
+                this.vor2Frequency.toFixed(2) != this.A32NXCore.radioNavTuner.selectedDisplayVor.frequency.toFixed(2)
+            ) {
+                this.vor2Frequency = this.A32NXCore.radioNavTuner.selectedDisplayVor.frequency;
+                this.vor2SelectedIdent = this.A32NXCore.radioNavTuner.selectedDisplayVor.ident;
+                this.radioNav.setVORActiveFrequency(2, this.vor2Frequency);
+            }
+
+            if (!this._ilsFrequencyPilotEntered && this.A32NXCore.radioNavTuner.selectedIls &&
+                this.ilsFrequency.toFixed(2) != this.A32NXCore.radioNavTuner.selectedIls.frequency.toFixed(2)
+            ) {
+                this.ilsFrequency = this.A32NXCore.radioNavTuner.selectedIls.frequency;
+                this.ilsSelectedIdent = this.A32NXCore.radioNavTuner.selectedIls.ident;
+                this.radioNav.setILSActiveFrequency(1, this.ilsFrequency);
+            }
+
+            /*const radioNavOn = this.isRadioNavActive();
             if (radioNavOn !== this._radioNavOn) {
                 this._radioNavOn = radioNavOn;
                 if (!radioNavOn) {
@@ -499,7 +547,7 @@ class FMCMainDisplay extends BaseAirliners {
             const curState = SimVar.GetSimVarValue("GPS DRIVES NAV1", "Bool");
             if (!!curState !== gpsDriven) {
                 SimVar.SetSimVarValue("K:TOGGLE_GPS_DRIVES_NAV1", "Bool", 0);
-            }
+            }*/
         }
     }
 

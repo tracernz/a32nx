@@ -470,6 +470,7 @@ class AirportInfo extends WayPointInfo {
             for (let i = 0; i < data.approaches.length; i++) {
                 const approachData = data.approaches[i];
                 const approach = new Approach();
+                approach.datas = approachData;
                 approach.name = approachData.name;
                 approach.runway = approachData.runway;
 
@@ -737,8 +738,11 @@ class NDBInfo extends WayPointInfo {
     SetFromIFacilityNDB(data, callback = EmptyCallback.Void, loadAirways = true) {
         super.SetFromIFacilityWaypoint(data);
         this.type = data.type;
+        this.class = data.vorClass;
         this.weatherBroadcast = data.weatherBroadcast;
         this.frequencyMHz = data.freqMHz;
+        this.magVar = data.magneticVariation;
+        this.location = new LatLong(data.lat, data.lon);
         this.instrument.facilityLoader.getNdbWaypointDataCB(this.icao, (data) => {
             if (!data) {
                 return callback();

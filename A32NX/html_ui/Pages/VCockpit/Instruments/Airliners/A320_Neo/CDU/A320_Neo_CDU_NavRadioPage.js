@@ -50,6 +50,8 @@ class CDUNavRadioPage {
                 vor1FrequencyCell = "{small}" + vor1Ident.padStart(3, "\xa0") + "{end}" + "/" + mcdu.vor1Frequency.toFixed(2);
             } else if (mcdu.vor1Frequency != 0 && mcdu.vor1IdIsPilotEntered && !mcdu.vor1FreqIsPilotEntered) {
                 vor1FrequencyCell = mcdu.vor1IdPilotValue.padStart(3, "\xa0") + "/" + "{small}" + mcdu.vor1Frequency.toFixed(2) + "{end}";
+            } else if (mcdu.vor1Frequency != 0) {
+                vor1FrequencyCell = `{small}${vor1Ident.padStart(3, "\xa0")}/${mcdu.vor1Frequency.toFixed(2)}{end}`;
             }
             mcdu.onLeftInput[0] = (value) => {
                 const numValue = parseFloat(value);
@@ -207,6 +209,8 @@ class CDUNavRadioPage {
                 vor2FrequencyCell = mcdu.vor2Frequency.toFixed(2) + "/" + "{small}" + vor2Ident.padEnd(3, "\xa0") + "{end}";
             } else if (mcdu.vor2Frequency != 0 && !mcdu.vor2FreqIsPilotEntered && mcdu.vor2IdIsPilotEntered) {
                 vor2FrequencyCell = "{small}" + mcdu.vor2Frequency.toFixed(2) + "{end}" + "/" + mcdu.vor2IdPilotValue.padEnd(3, "\xa0");
+            } else if (mcdu.vor2Frequency != 0) {
+                vor2FrequencyCell = `{small}${vor2Ident.padStart(3, "\xa0")}/${mcdu.vor2Frequency.toFixed(2)}{end}`;
             }
             mcdu.onRightInput[0] = (value) => {
                 const numValue = parseFloat(value);

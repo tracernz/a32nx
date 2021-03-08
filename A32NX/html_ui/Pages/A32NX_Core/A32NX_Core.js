@@ -1,5 +1,5 @@
 class A32NX_Core {
-    constructor() {
+    constructor(mcdu) {
         this.modules = [
             new A32NX_ADIRS(),
             new A32NX_APU(),
@@ -17,6 +17,7 @@ class A32NX_Core {
         ];
 
         this.soundManager = new A32NX_SoundManager();
+        this.radioNavTuner = new A32NX_RadioNavTuner(mcdu);
     }
 
     init(startTime) {
@@ -27,6 +28,7 @@ class A32NX_Core {
                 module.init();
             }
         });
+        this.radioNavTuner.init();
         this.isInit = true;
     }
 
@@ -40,6 +42,7 @@ class A32NX_Core {
         const deltaTime = this.getDeltaTime();
 
         this.soundManager.update(deltaTime);
+        this.radioNavTuner.update(deltaTime, this);
         this.modules.forEach(module => {
             module.update(deltaTime, this);
         });

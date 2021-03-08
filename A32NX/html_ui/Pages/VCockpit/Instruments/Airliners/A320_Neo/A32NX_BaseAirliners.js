@@ -183,6 +183,7 @@ var Airliners;
             const _deltaTime = this.getDeltaTime();
             super.onUpdate(_deltaTime);
             if (this.screen != null) {
+                console.log(this.screen);
                 this.screen.update(_deltaTime);
             }
         }
