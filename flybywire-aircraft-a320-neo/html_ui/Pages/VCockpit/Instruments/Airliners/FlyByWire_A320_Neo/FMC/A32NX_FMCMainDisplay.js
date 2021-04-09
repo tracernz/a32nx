@@ -166,6 +166,7 @@ class FMCMainDisplay extends BaseAirliners {
         this._activeCruiseFlightLevel = undefined;
         this._activeCruiseFlightLevelDefaulToFcu = false;
         this.fmsUpdateThrottler = new UpdateThrottler(250);
+        this.airacCycleInfo = new AiracCycleInfo();
     }
 
     Init() {
@@ -264,6 +265,8 @@ class FMCMainDisplay extends BaseAirliners {
                 }
             }
         }, 15000);
+
+        this.airacCycleInfo.loadMsfsCycle();
     }
 
     onUpdate(_deltaTime) {
