@@ -392,6 +392,7 @@ class FMCMainDisplay extends BaseAirliners {
             }
 
             case FmgcFlightPhases.APPROACH: {
+                this.updatePerfSpeeds();
                 if (this.canShowNextPerfPage(_lastFlightPhase)) {
                     CDUPerformancePage.ShowAPPRPage(this);
                 } else if (this.page.Current === this.page.ProgressPage) {
