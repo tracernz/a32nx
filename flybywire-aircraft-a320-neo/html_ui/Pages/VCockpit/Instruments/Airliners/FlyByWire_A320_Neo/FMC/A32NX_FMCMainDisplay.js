@@ -168,6 +168,7 @@ class FMCMainDisplay extends BaseAirliners {
         this.fmsUpdateThrottler = new UpdateThrottler(250);
         this._progBrgDist = undefined;
         this._progBrgDistUpdateThrottler = new UpdateThrottler(2000);
+        this._fuelPredictionUpdateThrottler = new UpdateThrottler(10000);
     }
 
     Init() {
@@ -297,6 +298,10 @@ class FMCMainDisplay extends BaseAirliners {
 
         if (this._progBrgDistUpdateThrottler.canUpdate(_deltaTime) !== -1) {
             this.updateProgDistance();
+        }
+
+        if (this._fuelPredictionUpdateThrottler.canUpdate(_deltaTime) !== -1) {
+            this.updateFuelPredictions();
         }
     }
 
@@ -797,6 +802,7 @@ class FMCMainDisplay extends BaseAirliners {
         this.computedVls = SimVar.GetSimVarValue("L:A32NX_SPEEDS_VLS", "number");
 
         let weight = this.tryEstimateLandingWeight();
+        const weightValid = this.currentFlightPhase >= FmgcFlightPhases.APPROACH || isFinite(weight);
         // Actual weight is used during approach phase (FCOM bulletin 46/2), and we also assume during go-around
         // We also fall back to current weight when landing weight is unavailable
         if (this.currentFlightPhase >= FmgcFlightPhases.APPROACH || !isFinite(weight)) {
@@ -808,7 +814,7 @@ class FMCMainDisplay extends BaseAirliners {
         } else {
             this.approachSpeeds = new NXSpeedsApp(weight, this.perfApprFlaps3);
         }
-        this.approachSpeeds.valid = this.currentFlightPhase >= FmgcFlightPhases.APPROACH || isFinite(weight);
+        this.approachSpeeds.valid = weightValid;
     }
 
     updateGPSMessage() {
@@ -1406,7 +1412,11 @@ class FMCMainDisplay extends BaseAirliners {
      */
     tryUpdateRouteTrip(dynamic = false) {
         let airDistance = 0;
-        const groundDistance = dynamic ? this.flightPlanManager.getDestination().liveDistanceTo : this.flightPlanManager.getDestination().cumulativeDistanceInFP;
+        const dest = this.flightPlanManager.getDestination();
+        if (!dest) {
+            return;
+        }
+        const groundDistance = dynamic ? dest.liveDistanceTo : dest.cumulativeDistanceInFP;
         if (this._windDir === this._windDirections.TAILWIND) {
             airDistance = A32NX_FuelPred.computeAirDistance(groundDistance, this.averageWind);
         } else if (this._windDir === this._windDirections.HEADWIND) {
@@ -1445,7 +1455,7 @@ class FMCMainDisplay extends BaseAirliners {
      * @returns {number}
      */
     tryGetExtraFuel(useFOB = false) {
-        const isFlying = parseInt(SimVar.GetSimVarValue("GROUND VELOCITY", "knots")) > 30;
+        const isFlying = this.currentFlightPhase >= FmgcFlightPhases.TAKEOFF;
 
         if (useFOB) {
             return this.getFOB() - this.getTotalTripFuelCons() - this._minDestFob - this.taxiFuelWeight - (isFlying ? 0 : this.getRouteReservedWeight());
@@ -2078,26 +2088,29 @@ class FMCMainDisplay extends BaseAirliners {
      * Attempts to predict required block fuel for trip
      * @returns {boolean}
      */
-    //TODO: maybe make this part of an update routine?
     tryFuelPlanning() {
         if (this._fuelPlanningPhase === this._fuelPlanningPhases.IN_PROGRESS) {
             this._blockFuelEntered = true;
             this._fuelPlanningPhase = this._fuelPlanningPhases.COMPLETED;
             return true;
         }
+        this.updateFuelPredictions();
+
+        this.blockFuel = this.getTotalTripFuelCons() + this._minDestFob + this.taxiFuelWeight + this.getRouteReservedWeight();
+        this._fuelPlanningPhase = this._fuelPlanningPhases.IN_PROGRESS;
+        return true;
+    }
+
+    updateFuelPredictions() {
         const tempRouteFinalFuelTime = this._routeFinalFuelTime;
         this.tryUpdateRouteFinalFuel();
         this.tryUpdateRouteAlternate();
-        this.tryUpdateRouteTrip();
+        this.tryUpdateRouteTrip(this.currentFlightPhase >= FmgcFlightPhases.TAKEOFF);
 
         this._routeFinalFuelTime = tempRouteFinalFuelTime;
         this._routeFinalFuelWeight = (this._routeFinalFuelTime * this._rteFinalCoeffecient) / 1000;
 
         this.tryUpdateMinDestFob();
-
-        this.blockFuel = this.getTotalTripFuelCons() + this._minDestFob + this.taxiFuelWeight + this.getRouteReservedWeight();
-        this._fuelPlanningPhase = this._fuelPlanningPhases.IN_PROGRESS;
-        return true;
     }
 
     trySetTaxiFuelWeight(s) {
@@ -2675,9 +2688,10 @@ class FMCMainDisplay extends BaseAirliners {
      * NaN on failure
      */
     tryEstimateLandingWeight() {
-        const altActive = false;
-        const landingWeight = this.zeroFuelWeight + (altActive ? this.getAltEFOB(true) : this.getDestEFOB(true));
-        return isFinite(landingWeight) ? landingWeight : NaN;
+        if (this.getTotalTripFuelCons() > 0 && this.zeroFuelWeight > 0) {
+            return this.zeroFuelWeight + this.getFOB() - this.getTotalTripFuelCons();
+        }
+        return NaN;
     }
 
     setPerfApprMDA(s) {
