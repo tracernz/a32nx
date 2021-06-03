@@ -2701,10 +2701,11 @@
                         </Component>
 
                         <Component ID="RCDR">
-                            <UseTemplate Name="FBW_Push_Toggle">
+                            <UseTemplate Name="FBW_Push_Held">
                                 <NODE_ID>PUSH_OVHD_RCDR_GNDCTL</NODE_ID>
                                 <PART_ID>PUSH_OVHD_RCDR_GNDCTL</PART_ID>
-                                <TOGGLE_SIMVAR>L:A32NX_RCDR_GROUND_CONTROL_ON</TOGGLE_SIMVAR>
+                                <LEFT_SINGLE_CODE>(L:A32NX_RCDR_GROUND_CONTROL_ON) ! (&gt;L:A32NX_RCDR_GROUND_CONTROL_ON)</LEFT_SINGLE_CODE>
+                                <NO_LEFT_LEAVE_CODE>True</NO_LEFT_LEAVE_CODE>
                                 <SEQ_POWERED>(L:A32NX_ELEC_AC_1_BUS_IS_POWERED, Bool)</SEQ_POWERED>
                                 <SEQ2_CODE>(L:A32NX_RCDR_GROUND_CONTROL_ON, Bool)</SEQ2_CODE>
                                 <SEQ1_EMISSIVE_DRIVES_VISIBILITY>False</SEQ1_EMISSIVE_DRIVES_VISIBILITY>

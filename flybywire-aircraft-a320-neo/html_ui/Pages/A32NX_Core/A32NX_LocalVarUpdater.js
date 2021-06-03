@@ -83,6 +83,12 @@ class A32NX_LocalVarUpdater {
                 type: "Bool",
                 selector: this._areSlidesArmed.bind(this),
                 refreshInterval: 100,
+            },
+            {
+                varName: "L:A32NX_RCDR_GROUND_CONTROL_ON",
+                type: "Bool",
+                selector: this.cvrGroundControl.bind(this),
+                refreshInterval: 1000,
             }
             // New updaters go here...
         ];
@@ -104,8 +110,8 @@ class A32NX_LocalVarUpdater {
             return;
         }
 
-        const newValue = selector(selectorDeltaTime, identifier);
         const currentValue = SimVar.GetSimVarValue(varName, type);
+        const newValue = selector(selectorDeltaTime, identifier, currentValue);
 
         if (newValue !== currentValue) {
             SimVar.SetSimVarValue(varName, type, newValue);
@@ -209,6 +215,15 @@ class A32NX_LocalVarUpdater {
             SimVar.GetSimVarValue('INTERACTIVE POINT OPEN:3', 'percent') < 5 && // Rear door, FO side for catering
             SimVar.GetSimVarValue('INTERACTIVE POINT OPEN:5', 'percent') < 5 // Cargo door FO side
         );
+    }
+
+    cvrGroundControl(deltaTime, identifier, currentValue) {
+        if (currentValue) {
+            const isEngineOneRunning = SimVar.GetSimVarValue("ENG COMBUSTION:1", "bool");
+            const isEngineTwoRunning = SimVar.GetSimVarValue("ENG COMBUSTION:2", "bool");
+            return !isEngineOneRunning && !isEngineTwoRunning;
+        }
+        return currentValue;
     }
 
     // New selectors go here...

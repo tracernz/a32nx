@@ -350,6 +350,8 @@
             <SEQ_POWERED>1</SEQ_POWERED>
             <SEQ1_POWERED>1</SEQ1_POWERED>
             <SEQ2_POWERED>1</SEQ2_POWERED>
+
+            <NO_LEFT_LEAVE_CODE>False</NO_LEFT_LEAVE_CODE>
         </DefaultTemplateParameters>
 
         <Component ID="#NODE_ID#" Node="#NODE_ID#">
@@ -357,7 +359,14 @@
                 <Condition Valid="LEFT_SINGLE_CODE">
                     <True>
                         <LEFT_SINGLE_CODE>#LEFT_SINGLE_CODE#</LEFT_SINGLE_CODE>
-                        <LEFT_LEAVE_CODE>#LEFT_SINGLE_CODE#</LEFT_LEAVE_CODE>
+                        <Condition Valid="NO_LEFT_LEAVE_CODE">
+                            <True>
+                                <LEFT_LEAVE_CODE></LEFT_LEAVE_CODE>
+                            </True>
+                            <False>
+                                <LEFT_LEAVE_CODE>#LEFT_SINGLE_CODE#</LEFT_LEAVE_CODE>
+                            </False>
+                        </Condition>
                     </True>
                     <False>
                         <LEFT_SINGLE_CODE>1 (>#HOLD_SIMVAR#)</LEFT_SINGLE_CODE>
