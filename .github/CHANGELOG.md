@@ -91,6 +91,8 @@
 1. [OVHD] Correct EVAC button behaviours - @tracernz (Mike)
 1. [OVHD] Fix invisible fault emissive decal on centre fuel pump 2 - @tracernz (Mike)
 1. [VFX] Add APU exhaust heat blur effect - @wpine215 (Iceman)
+1. [OVHD] CVR ground test auto-resets on first engine start - @tracernz (Mike)
+1. [MISC] Cabin ready triggers automatically a short time after memo - @tracernz (Mike)
 
 ## 0.6.0
 1. [CDU] Added WIND page - @tyler58546 (tyler58546)
