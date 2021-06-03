@@ -16,6 +16,7 @@ class A32NX_LocalVarUpdater {
             "FWD":false,
             "AFT":false
         };
+        this.cabinReadyNode = new NXLogic_ConfirmNode(2 + Math.random() * 6);
 
         this.updaters = [
             {
@@ -89,7 +90,13 @@ class A32NX_LocalVarUpdater {
                 type: "Bool",
                 selector: this.cvrGroundControl.bind(this),
                 refreshInterval: 1000,
-            }
+            },
+            {
+                varName: "L:A32NX_CABIN_READY",
+                type: "Bool",
+                selector: this.cabinReady.bind(this),
+                refreshInterval: 5000,
+            },
             // New updaters go here...
         ];
 
@@ -224,6 +231,11 @@ class A32NX_LocalVarUpdater {
             return !isEngineOneRunning && !isEngineTwoRunning;
         }
         return currentValue;
+    }
+
+    cabinReady(deltaTime) {
+        this.cabinReadyNode.write(SimVar.GetSimVarValue("L:A32NX_FWC_TOMEMO", "Bool") || SimVar.GetSimVarValue("L:A32NX_FWC_LDGMEMO", "Bool"), deltaTime);
+        return this.cabinReadyNode.read();
     }
 
     // New selectors go here...
