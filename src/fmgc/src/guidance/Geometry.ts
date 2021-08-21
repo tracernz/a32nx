@@ -4,6 +4,7 @@ import { Transition } from '@fmgc/guidance/lnav/transitions';
 import { Leg } from '@fmgc/guidance/lnav/legs';
 import { LatLongData } from '@typings/fs-base-ui/html_ui/JS/Types';
 import { GuidanceParameters } from './ControlLaws';
+import { k2, maxRollRate } from './lnav/GuidanceConstants';
 
 export const EARTH_RADIUS_NM = 3440.1;
 
@@ -65,7 +66,7 @@ export class Geometry {
                 const unTravelled = Avionics.Utils.computeGreatCircleDistance(itp, activeLeg.terminatorLocation);
                 const rad = this.getRollAnticipationDistance(gs, activeLeg, toTransition);
                 if ((activeLeg.getDistanceToGo(ppos) - unTravelled) <= rad) {
-                    console.log(`RAD for transition ${rad}`);
+                    //console.log(`RAD for transition ${rad}`);
                     const params = activeLeg.getGuidanceParameters(ppos, trueTrack);
                     const toParams = toTransition.getGuidanceParameters(ppos, trueTrack);
                     params.phiCommand = toParams.phiCommand ?? 0;
@@ -79,7 +80,7 @@ export class Geometry {
             if (nextLeg) {
                 const rad = this.getRollAnticipationDistance(gs, activeLeg, nextLeg);
                 if (activeLeg.getDistanceToGo(ppos) <= rad) {
-                    console.log(`RAD for next leg ${rad}`);
+                    //console.log(`RAD for next leg ${rad}`);
                     const params = activeLeg.getGuidanceParameters(ppos, trueTrack);
                     const toParams = nextLeg.getGuidanceParameters(ppos, trueTrack);
                     params.phiCommand = toParams.phiCommand ?? 0;
@@ -110,8 +111,6 @@ export class Geometry {
         const deltaPhi = Math.abs(phiNominalTo - phiNominalFrom);
 
         // calculate RAD
-        const maxRollRate = 5; // deg / s, TODO picked off the wind
-        const k2 = 0.0045;
         const rad = gs / 3600 * (Math.sqrt(1 + 2 * k2 * 9.81 * deltaPhi / maxRollRate) - 1) / (k2 * 9.81);
 
         // TODO consider case where RAD > transition distance
@@ -139,11 +138,11 @@ export class Geometry {
         // FIXME I don't think this works since getActiveLegGeometry doesn't put a transition at n = 2
         const terminatingTransition = this.transitions.get(2);
 
-        if (terminatingTransition) {
+        /*if (terminatingTransition) {
             const tdttp = terminatingTransition.getTrackDistanceToTerminationPoint(ppos);
 
             return tdttp < 0.001;
-        }
+        }*/
 
         if (activeLeg) {
             const distanceToGo = activeLeg.getDistanceToGo(ppos);

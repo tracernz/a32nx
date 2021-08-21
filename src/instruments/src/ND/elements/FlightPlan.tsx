@@ -15,6 +15,7 @@ import { Transition } from '@fmgc/guidance/lnav/transitions';
 import { Xy } from '@fmgc/flightplanning/data/geo';
 import { useCurrentFlightPlan, useTemporaryFlightPlan } from '@instruments/common/flightplan';
 import { MapParameters } from '../utils/MapParameters';
+import { CALeg } from '@fmgc/guidance/lnav/legs/CA';
 
 export type FlightPathProps = {
     x?: number,
@@ -279,8 +280,22 @@ const LegWaypointMarkers: FC<LegWaypointMarkersProps> = ({ leg, nextLeg, index, 
             );
         }
         return null;
+    } else if (leg instanceof CALeg) {
+        [x, y] = mapParams.coordinatesToXYy(leg.terminatorLocation);
+        return (
+            <WaypointMarker
+                ident={leg.ident}
+                position={[x, y]}
+                speedConstraint={leg.speedConstraint}
+                index={index}
+                isActive={isActive}
+                constraints={constraints}
+                debug={debug}
+            />
+        );
     } else {
-        throw new Error(`Invalid leg type for leg '${leg}'.`);
+        console.warn(`Invalid leg type for leg '${leg}'.`);
+        return null;
     }
 
     return (
@@ -652,7 +667,7 @@ function makePathFromGeometry(geometry: Geometry, mapParams: MapParameters): str
             const cw = leg.clockwise;
 
             path.push(`A ${r} ${r} 0 ${leg.angle >= 180 ? 1 : 0} ${cw ? 1 : 0} ${x} ${y}`);
-        }
+        } // TODO CALeg
     }
 
     return path.join(' ');

@@ -252,6 +252,6 @@ export class TFLeg implements Leg {
     }
 
     toString(): string {
-        return `<TFLeg from=${this.from} to=${this.to}>`;
+        return `<TFLeg from=${this.from.ident} to=${this.to.ident}>`;
     }
 }

@@ -172,6 +172,8 @@ export class LegsProcedure {
                       mappedLeg = this.mapRadiusToFix(currentLeg);
                       break;
                   case 2:
+                      mappedLeg = this.mapCourseUntilAltitude(currentLeg, this._previousFix);
+                      break;
                   case 19:
                       mappedLeg = this.mapHeadingUntilAltitude(currentLeg, this._previousFix);
                       break;
@@ -377,6 +379,27 @@ export class LegsProcedure {
 
       return waypoint;
   }
+
+  /**
+   * Maps flying a course until a prescribed altitude.
+   * @param leg The procedure leg to map.
+   * @param prevLeg The previous leg in the procedure.
+   * @returns The mapped leg.
+   */
+   public mapCourseUntilAltitude(leg: ProcedureLeg, prevLeg: WayPoint) {
+    const magVar = Facilities.getMagVar(prevLeg.infos.coordinates);
+    const course = leg.trueDegrees ? leg.course : A32NX_Util.magneticToTrue(leg.course, magVar);
+    const altitudeFeet = (leg.altitude1 * 3.2808399);
+    const distanceInNM = altitudeFeet / 1500.0;
+
+    const coordinates = GeoMath.relativeBearingDistanceToCoords(course, distanceInNM, prevLeg.infos.coordinates);
+    const waypoint = this.buildWaypoint(FixNamingScheme.headingUntilAltitude(altitudeFeet), coordinates, prevLeg.infos.magneticVariation);
+
+    waypoint.additionalData.course = course;
+    waypoint.additionalData.altitude = altitudeFeet;
+
+    return waypoint;
+}
 
   /**
    * Maps a vectors instruction.

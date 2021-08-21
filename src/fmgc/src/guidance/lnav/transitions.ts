@@ -1,4 +1,5 @@
 import { Guidable } from '@fmgc/guidance/Geometry';
+import { LatLongData } from '@typings/fs-base-ui';
 import { Degrees, NauticalMiles } from '@typings/types';
 
 export abstract class Transition implements Guidable {
@@ -14,5 +15,5 @@ export abstract class Transition implements Guidable {
 
     abstract getTrackDistanceToTerminationPoint(ppos: LatLongAlt): NauticalMiles;
 
-    abstract getTurningPoints(): [LatLongAlt, LatLongAlt]
+    abstract getTurningPoints(): [LatLongData, LatLongData]
 }

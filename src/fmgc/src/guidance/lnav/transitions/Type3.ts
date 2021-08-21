@@ -1,29 +1,32 @@
 import { Degrees, NauticalMiles } from '@typings/types';
 import { MathUtils } from '@shared/MathUtils';
 import { TFLeg } from '@fmgc/guidance/lnav/legs/TF';
+import { VMLeg } from '@fmgc/guidance/lnav/legs/VM';
 import { Transition } from '@fmgc/guidance/lnav/transitions';
 import { ControlLaw, GuidanceParameters } from '@fmgc/guidance/ControlLaws';
+import { CALeg } from '../legs/CA';
+import { RFLeg } from '../legs/RF';
 
 const mod = (x: number, n: number) => x - Math.floor(x / n) * n;
 
-export type Type1PreviousLeg = /*CFLeg | DFLeg |*/ TFLeg;
-export type Type1NextLeg = /*CFLeg | FALeg | FMLeg | PILeg |*/ TFLeg;
+export type Type3PreviousLeg = /*AFLeg |*/ CALeg | /*CDLeg | CFLeg | CRLeg | DFLeg | FALeg | FMLeg | HALeg | HFLeg | HMLeg |*/ RFLeg | TFLeg | /*VALeg | VDLeg |*/ VMLeg /*| VRLeg*/;
+export type Type3NextLeg = CALeg | /*CDLeg | CILeg | CRLeg | VALeg | VDLeg | VILeg |*/ VMLeg /*| VRLeg*/;
 
 /**
  * A type I transition uses a fixed turn radius between two fix-referenced legs.
  */
- export class Type1Transition extends Transition {
-    public previousLeg: Type1PreviousLeg;
+ export class Type3Transition extends Transition {
+    public previousLeg: Type3PreviousLeg;
 
-    public nextLeg: Type1NextLeg;
+    public nextLeg: Type3NextLeg;
 
     public radius: NauticalMiles;
 
     public clockwise: boolean;
 
     constructor(
-        previousLeg: Type1PreviousLeg,
-        nextLeg: Type1NextLeg,
+        previousLeg: Type3PreviousLeg,
+        nextLeg: Type3NextLeg, // FIXME this cannot happen, but what are you gonna do about it ?,
     ) {
         super();
         this.previousLeg = previousLeg;

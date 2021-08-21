@@ -27,7 +27,7 @@ export type HeadingGuidance = {
 }
 
 export type TrackGuidance = {
-    law: ControlLaw.HEADING,
+    law: ControlLaw.TRACK,
     course: Degrees;
 }
 
@@ -38,4 +38,11 @@ export type LateralPathGuidance = {
     phiCommand: Degrees;
 }
 
-export type GuidanceParameters = HeadingGuidance | TrackGuidance | LateralPathGuidance;
+export type GuidanceParameters = {
+    law: ControlLaw.LATERAL_PATH,
+    heading?: Degrees;
+    course?: Degrees;
+    crossTrackError?: NauticalMiles;
+    trackAngleError?: Degrees;
+    phiCommand?: Degrees;
+};

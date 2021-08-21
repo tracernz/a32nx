@@ -177,6 +177,6 @@ export class RFLeg implements Leg {
     }
 
     toString(): string {
-        return `<RFLeg radius=${this.radius} to=${this.to}>`;
+        return `<RFLeg radius=${this.radius} to=${this.to.ident}>`;
     }
 }

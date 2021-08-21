@@ -116,6 +116,33 @@ export class LnavDriver implements GuidanceComponent {
                     }
 
                     break;
+                case ControlLaw.TRACK:
+                    const { course } = params;
+
+                    if (!this.lastAvail) {
+                        SimVar.SetSimVarValue('L:A32NX_FG_AVAIL', 'Bool', true);
+                        this.lastAvail = true;
+                    }
+
+                    if (this.lastXTE !== 0) {
+                        SimVar.SetSimVarValue('L:A32NX_FG_CROSS_TRACK_ERROR', 'nautical miles', 0);
+                        this.lastXTE = 0;
+                    }
+
+                    // Track Angle Error
+                    const deltaTrack = MathUtils.diffAngle(trueTrack, course);
+
+                    if (deltaTrack !== this.lastTAE) {
+                        SimVar.SetSimVarValue('L:A32NX_FG_TRACK_ANGLE_ERROR', 'degree', deltaTrack);
+                        this.lastTAE = deltaTrack;
+                    }
+
+                    if (this.lastPhi !== 0) {
+                        SimVar.SetSimVarValue('L:A32NX_FG_PHI_COMMAND', 'degree', 0);
+                        this.lastPhi = 0;
+                    }
+
+                    break;
                 default:
                     throw new Error(`Invalid control law: ${params.law}`);
                 }
@@ -154,7 +181,7 @@ export class LnavDriver implements GuidanceComponent {
 
     sequenceLeg(_leg?: Leg): void {
         let wpIndex = this.guidanceController.flightPlanManager.getActiveWaypointIndex(false, false, 0);
-        console.log(`[FMGC/Guidance] LNAV - sequencing leg. Active WP Index: ${wpIndex}`);
+        console.log(`[FMGC/Guidance] LNAV - sequencing leg. Active WP Index: ${wpIndex} ${_leg}`);
         const wp = this.guidanceController.flightPlanManager.getActiveWaypoint(false, false, 0);
         wp.waypointReachedAt = SimVar.GetGlobalVarValue('ZULU TIME', 'seconds');
 
