@@ -19,6 +19,7 @@ export enum NdSymbolTypeFlags {
     ConstraintMissed = 1 << 11,
     ConstraintUnknown = 1 << 12,
     SpeedChange = 1 << 13,
+    FixInfo = 1 << 14,
 }
 
 export interface NdSymbol {
@@ -27,4 +28,6 @@ export interface NdSymbol {
     location: LatLongData,
     type: NdSymbolTypeFlags,
     constraints?: string[],
+    fixInfoRadius?: number,
+    fixInfoRadials?: number[],
 }

@@ -1,10 +1,11 @@
 import { NavDataManager } from "@fmgc/database/NavDataManager";
-import { VhfNavaid, VhfNavaidType } from "@fmgc/database/Types";
+import { VhfNavaid, VhfNavaidType, VorClass } from "@fmgc/database/Types";
 import { FlightPlanManager } from "@fmgc/flightplanning/FlightPlanManager";
 import { FmgcComponent } from "@fmgc/lib/FmgcComponent";
 import { NavRadioManager } from "@fmgc/radionav/NavRadioManager";
 import { NdSymbol, NdSymbolTypeFlags } from "@shared/NdSymbols";
 import { LatLongData } from "@typings/fs-base-ui";
+import { Degrees, NauticalMiles } from "../../../../typings";
 
 
 // TODO share
@@ -28,6 +29,12 @@ export enum EfisOption {
     Airports = 5,
 }
 
+interface FixInfo {
+    fix: VhfNavaid,
+    radius?: NauticalMiles,
+    radials?: Degrees[], // magnetic
+}
+
 export class NdSymbols implements FmgcComponent {
     // TODO check time
     private updateThrottler;
@@ -39,11 +46,30 @@ export class NdSymbols implements FmgcComponent {
     private lastEfisOption = { L: 0, R: 0 };
     private lastPpos: LatLongData = { lat: 0, long: 0 };
 
+    // TODO temp
+    private fixInfos: FixInfo[] = [];
+
     constructor() {
     }
 
     init(): void {
         this.updateThrottler = new UpdateThrottler(10000);
+
+        this.fixInfos.push({
+            fix: {
+                databaseId: 'VNZ    WN',
+                ident: 'WN',
+                frequency: 112.3,
+                figureOfMerit: 3,
+                stationDeclination: -22,
+                vorLocation: new LatLongAlt(-41.3372078, 174.8169722),
+                dmeLocation: new LatLongAlt(-41.3372078, 174.8169722),
+                type: VhfNavaidType.VorDme,
+                class: VorClass.HighAlt,
+            },
+            radius: 7,
+            radials: [160, 190],
+        });
     }
 
     update(deltaTime: number): void {
@@ -91,7 +117,7 @@ export class NdSymbols implements FmgcComponent {
 
             const [editAhead, editBehind, editBeside] = this.calculateEditArea(range, mode);
 
-            const symbols = new Array();
+            const symbols: NdSymbol[] = new Array();
 
             if (efisOption === EfisOption.VorDmes) {
                 for (let i = 0; i < NavDataManager.instance.nearbyVhfNavaids.length; i++) {
@@ -232,10 +258,19 @@ export class NdSymbols implements FmgcComponent {
                 symbols.push(symbol);
             }
 
+            this.fixInfos.forEach((fix) => {
+                symbols.push({
+                    databaseId: fix.fix.databaseId,
+                    ident: fix.fix.ident,
+                    location: fix.fix.vorLocation ?? fix.fix.dmeLocation,
+                    type: NdSymbolTypeFlags.VorDme | NdSymbolTypeFlags.FixInfo,
+                });
+            });
+
             // TODO limit to 640 words => map partly displayed
 
             setTimeout(() => {
-                this.listener.triggerToAllSubscribers(`A32NX_EFIS_${side}_SMYBOLS`, symbols);
+                this.listener.triggerToAllSubscribers(`A32NX_EFIS_${side}_SYMBOLS`, symbols);
             }, 400);
         });
     }
