@@ -1,3 +1,5 @@
+import { Location } from "@fmgc/database/shared/types/Common";
+
 // TODO get from proper place
 interface LatLongData {
     lat: number,
@@ -25,7 +27,7 @@ export enum NdSymbolTypeFlags {
 export interface NdSymbol {
     databaseId: string,
     ident: string,
-    location: LatLongData,
+    location: Location,
     type: NdSymbolTypeFlags,
     constraints?: string[],
     fixInfoRadius?: number,

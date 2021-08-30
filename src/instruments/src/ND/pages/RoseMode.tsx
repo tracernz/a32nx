@@ -8,13 +8,14 @@ import { TuningMode } from '@fmgc/radionav';
 import { ToWaypointIndicator } from '../elements/ToWaypointIndicator';
 import { FlightPlan } from '../elements/FlightPlan';
 import { MapParameters } from '../utils/MapParameters';
-import { EfisOption, EfisSide, Mode } from '../index';
+import { EfisOption, EfisSide, Mode, RangeSetting } from '../index';
 import { RadioNeedle } from '../elements/RadioNeedles';
 import { ApproachMessage } from '../elements/ApproachMessage';
+import { MoraIndicator } from '../elements/MoraIndicator';
 
 export interface RoseModeProps {
     adirsAlign: boolean,
-    rangeSetting: number,
+    rangeSetting: RangeSetting,
     mode: Mode.ROSE_ILS | Mode.ROSE_VOR | Mode.ROSE_NAV,
     side: EfisSide,
     ppos: LatLongData,
@@ -56,6 +57,7 @@ export const RoseMode: FC<RoseModeProps> = ({ adirsAlign, rangeSetting, mode, si
                     flightPlanManager={flightPlanManager}
                     mapParams={mapParams}
                     constraints={efisOption === EfisOption.Constraints}
+                    side={side}
                     debug={false}
                     temp
                 />
@@ -72,6 +74,7 @@ export const RoseMode: FC<RoseModeProps> = ({ adirsAlign, rangeSetting, mode, si
                                 flightPlanManager={flightPlanManager}
                                 mapParams={mapParams}
                                 constraints={efisOption === EfisOption.Constraints}
+                                side={side}
                                 debug={false}
                                 temp={false}
                             />
@@ -101,6 +104,8 @@ export const RoseMode: FC<RoseModeProps> = ({ adirsAlign, rangeSetting, mode, si
                 { mode === Mode.ROSE_NAV && <ToWaypointIndicator info={flightPlanManager.getCurrentFlightPlan().computeActiveWaypointStatistics(ppos)} /> }
                 { mode === Mode.ROSE_VOR && <VorInfo side={side} /> }
                 { mode === Mode.ROSE_ILS && <IlsInfo /> }
+
+                { mode === Mode.ROSE_NAV && <MoraIndicator rangeSetting={rangeSetting} efisOption={efisOption} /> }
 
                 <ApproachMessage info={flightPlanManager.getAirportApproach()} flightPhase={fmgcFlightPhase} />
             </>

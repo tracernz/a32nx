@@ -21,5 +21,12 @@ export type Celcius = number;
 export type InchesOfMercury = number;
 export type Millibar = number;
 export type PressurePerSquareInch = number;
+export type Feet = number;
+export type FlightLevel = number;
+export type Metres = number;
+export type TrueDegrees = number;
+export type MagneticDegrees = number;
+export type MegaHertz = number;
+export type KiloHertz = number;
 
 export {};

@@ -6,6 +6,9 @@ import { GuidanceController } from './guidance/GuidanceController';
 import { NavRadioManager } from './radionav/NavRadioManager';
 import { initFmgcLoop, updateFmgcLoop } from './loop';
 import { FmsMessages } from './components/FmsMessages';
+import { Database } from './database/Database';
+import { ExternalBackend } from './database/backends/External';
+import { calculateFmsPosition } from './position';
 
 export {
     FlightPlanManager,
@@ -17,4 +20,7 @@ export {
     initFmgcLoop,
     updateFmgcLoop,
     FmsMessages,
+    Database,
+    ExternalBackend,
+    calculateFmsPosition,
 };

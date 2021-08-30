@@ -1,11 +1,13 @@
-import { VhfNavaid, VhfNavaidType } from "@fmgc/database/Types";
-import { MegaHertz } from "@typings/types";
+import { VhfNavaid, VhfNavaidType } from "@fmgc/database/shared/types/VhfNavaid";
+import { MegaHertz } from "@fmgc/database/shared/types/Common";
 import { VorTuner, DmeChannel } from "@fmgc/radionav/Tuner";
-import { NavDataManager } from "@fmgc/database/NavDataManager";
+import { Database } from "@fmgc/database/Database";
 import { TuningMode } from "@fmgc/radionav/NavRadioManager";
 import { LatLongData } from "@typings/fs-base-ui";
+import { ExternalBackend } from "@fmgc/database/backends/External";
 
 export class VorDmeSelector {
+    private database: Database; // TODO move out of here
     private candidates: VhfNavaid[] = [];
     private displayVor: VhfNavaid;
     private dmePair: VhfNavaid[];
@@ -31,6 +33,9 @@ export class VorDmeSelector {
 
         this.pilotFrequency = new Array(this.displayTuners.length);
         this.pilotVor = new Array(this.displayTuners.length);
+
+        const backend = new ExternalBackend('http://localhost:5000');
+        this.database = new Database(backend);
     }
 
     init(): void {
@@ -105,14 +110,21 @@ export class VorDmeSelector {
 
     private async updateCandidates(ppos: LatLongData): Promise<void> {
         this.candidates.length = 0;
-        for (let i = 0; i < NavDataManager.instance.nearbyVhfNavaids.length && this.candidates.length < 20; i++) {
-            const vor = NavDataManager.instance.nearbyVhfNavaids[i];
-            // TODO which types should be considered?
-            if (vor.type === VhfNavaidType.VorDme || vor.type === VhfNavaidType.Dme) {
-                this.candidates.push(vor);
+        try {
+            const nearby = await this.database.getNearbyVhfNavaids(ppos.lat, ppos.long, 38/*1*/); // TODO hax
+            for (let i = 0; i < nearby.length && this.candidates.length < 20; i++) {
+                const vor = nearby[i];
+                // TODO which types should be considered?
+                if (vor.type === VhfNavaidType.VorDme || vor.type === VhfNavaidType.Dme) {
+                    this.candidates.push(vor);
+                }
             }
+
+            // sorting shouldn't be necessary.. API should guarantee it
+            //this.candidates.sort((a, b) => Avionics.Utils.computeGreatCircleDistance(ppos, a.vorLocation) - Avionics.Utils.computeGreatCircleDistance(ppos, b.vorLocation));
+        } catch(e) {
+            console.warn('Failed to get VOR DME candidates', e);
         }
-        this.candidates.sort((a, b) => Avionics.Utils.computeGreatCircleDistance(ppos, a.vorLocation) - Avionics.Utils.computeGreatCircleDistance(ppos, b.vorLocation));
     }
 
     public tunedNavaids(): VhfNavaid[] {

@@ -1,5 +1,6 @@
-import { NavDataManager } from "@fmgc/database/NavDataManager";
-import { VhfNavaid, VhfNavaidType, VorClass } from "@fmgc/database/Types";
+import { Database } from "@fmgc/database/Database";
+import { ExternalBackend } from "@fmgc/database/backends/External";
+import { VhfNavaid, VhfNavaidType, VorClass } from "@fmgc/database/shared/types/VhfNavaid";
 import { FlightPlanManager } from "@fmgc/flightplanning/FlightPlanManager";
 import { FmgcComponent } from "@fmgc/lib/FmgcComponent";
 import { NavRadioManager } from "@fmgc/radionav/NavRadioManager";
@@ -36,6 +37,8 @@ interface FixInfo {
 }
 
 export class NdSymbols implements FmgcComponent {
+    // TODO make gone
+    private database: Database;
     // TODO check time
     private updateThrottler;
     private listener = RegisterViewListener('JS_LISTENER_SIMVARS');
@@ -50,6 +53,7 @@ export class NdSymbols implements FmgcComponent {
     private fixInfos: FixInfo[] = [];
 
     constructor() {
+        this.database = new Database(new ExternalBackend('http://localhost:5000'));
     }
 
     init(): void {
@@ -58,21 +62,22 @@ export class NdSymbols implements FmgcComponent {
         this.fixInfos.push({
             fix: {
                 databaseId: 'VNZ    WN',
+                icaoCode: 'NZ',
                 ident: 'WN',
                 frequency: 112.3,
                 figureOfMerit: 3,
                 stationDeclination: -22,
-                vorLocation: new LatLongAlt(-41.3372078, 174.8169722),
-                dmeLocation: new LatLongAlt(-41.3372078, 174.8169722),
+                vorLocation: { lat: -41.3372078, lon: 174.8169722 },
+                dmeLocation: { lat: -41.3372078, lon: 174.8169722 },
                 type: VhfNavaidType.VorDme,
                 class: VorClass.HighAlt,
             },
-            radius: 7,
+            radius: 15,
             radials: [160, 190],
         });
     }
 
-    update(deltaTime: number): void {
+    async update(deltaTime: number): Promise<void> {
         // TODO gotta respond faster than this
         /*if (this.updateThrottler.canUpdate(deltaTime) === -1) {
             return;
@@ -88,13 +93,13 @@ export class NdSymbols implements FmgcComponent {
         const trueHeading = SimVar.GetSimVarValue('PLANE HEADING DEGREES TRUE', 'radians');
 
         if (pposChanged) {
-            this.updateMora();
+            //this.updateMora();
         }
 
         const flightPlanManager = FlightPlanManager.DEBUG_INSTANCE; // TODO hmmm
         const activeFp = flightPlanManager.getCurrentFlightPlan();
 
-        NdSymbols.sides.forEach((side) => {
+        NdSymbols.sides.forEach(async (side) => {
             const range = rangeSettings[SimVar.GetSimVarValue(`L:A32NX_EFIS_${side}_ND_RANGE`, 'number')];
             const mode: Mode = SimVar.GetSimVarValue(`L:A32NX_EFIS_${side}_ND_MODE`, 'number');
             const efisOption = SimVar.GetSimVarValue(`L:A32NX_EFIS_${side}_OPTION`, 'enum');
@@ -120,13 +125,14 @@ export class NdSymbols implements FmgcComponent {
             const symbols: NdSymbol[] = new Array();
 
             if (efisOption === EfisOption.VorDmes) {
-                for (let i = 0; i < NavDataManager.instance.nearbyVhfNavaids.length; i++) {
-                    const vor = NavDataManager.instance.nearbyVhfNavaids[i];
+                const nearby = await this.database.getNearbyVhfNavaids(ppos.lat, ppos.long, range * 1.5);
+                for (let i = 0; i < nearby.length; i++) {
+                    const vor = nearby[i];
                     if (vor.type !== VhfNavaidType.Vor && vor.type !== VhfNavaidType.VorDme && vor.type !== VhfNavaidType.Dme) {
                         continue;
                     }
-                    const dist = Avionics.Utils.computeGreatCircleDistance(ppos, vor.vorLocation);
-                    const bearing = Avionics.Utils.computeGreatCircleDistance(ppos, vor.vorLocation) * Math.PI / 180;
+                    const dist = Avionics.Utils.computeGreatCircleDistance(ppos, { lat: vor.vorLocation.lat, long: vor.vorLocation.lon });
+                    const bearing = Avionics.Utils.computeGreatCircleDistance(ppos, { lat: vor.vorLocation.lat, long: vor.vorLocation.lon }) * Math.PI / 180;
                     const dx = dist * Math.cos(bearing - trueHeading);
                     const dy = -dist * Math.sin(bearing - trueHeading);
                     if (Math.abs(dx) < editBeside && dy > -editBehind && dy < editAhead) {
@@ -140,8 +146,9 @@ export class NdSymbols implements FmgcComponent {
                     }
                 }
             } else if (efisOption === EfisOption.Ndbs) {
-                for (let i = 0; i < NavDataManager.instance.nearbyNdbNavaids.length; i++) {
-                    const ndb = NavDataManager.instance.nearbyNdbNavaids[i];
+                const nearby = await this.database.getNearbyNdbNavaids(ppos.lat, ppos.long, range * 1.5);
+                for (let i = 0; i < nearby.length; i++) {
+                    const ndb = nearby[i];
 
                     const dist = Avionics.Utils.computeGreatCircleDistance(ppos, ndb.location);
                     const bearing = Avionics.Utils.computeGreatCircleDistance(ppos, ndb.location) * Math.PI / 180;
@@ -264,6 +271,8 @@ export class NdSymbols implements FmgcComponent {
                     ident: fix.fix.ident,
                     location: fix.fix.vorLocation ?? fix.fix.dmeLocation,
                     type: NdSymbolTypeFlags.VorDme | NdSymbolTypeFlags.FixInfo,
+                    fixInfoRadius: fix.radius,
+                    fixInfoRadials: fix.radials,
                 });
             });
 
@@ -290,7 +299,7 @@ export class NdSymbols implements FmgcComponent {
                 grids.push([(minLat + lat) % 90, (minLon + lon) % 180]);
             }
         }
-        NavDataManager.instance.database.getMora(grids).then((moras) => {
+        this.database.getMora(grids).then((moras) => {
             let mora = -1;
             if (Object.keys(moras).length > 0) {
                 mora = Object.values(moras).reduce((mora, candidate) => Math.max(mora, candidate));

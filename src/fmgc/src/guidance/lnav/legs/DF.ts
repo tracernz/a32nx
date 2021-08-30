@@ -98,7 +98,7 @@ export class DFLeg implements Leg {
 
     getDistanceToGo(ppos: LatLongData): NauticalMiles {
         const bearingPposTf = Avionics.Utils.computeGreatCircleHeading(ppos, this.to.infos.coordinates);
-        if (Avionics.Utils.diffAngle(bearingPposTf, this.))
+        //if (Avionics.Utils.diffAngle(bearingPposTf, this.))
         return Avionics.Utils.computeGreatCircleDistance(ppos, this.to.infos.coordinates);
     }
 

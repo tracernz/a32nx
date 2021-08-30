@@ -120,6 +120,7 @@ const NavigationDisplay: React.FC = () => {
                             rangeSetting={rangeSettings[rangeIndex]}
                             ppos={ppos}
                             efisOption={efisOption}
+                            side={side}
                             mapHidden={modeChangeShown || rangeChangeShown}
                         />
                     )}

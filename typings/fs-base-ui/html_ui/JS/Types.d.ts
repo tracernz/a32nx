@@ -3,6 +3,7 @@ import {Feet, Latitude, Longitude} from "../../../types";
 interface LatLongData {
     lat: Latitude,
     long: Longitude,
+    alt?: Feet,
 }
 
 declare global {

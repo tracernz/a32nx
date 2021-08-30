@@ -118,8 +118,9 @@ export class GuidanceManager {
         case LegType.CA:
             return GuidanceManager.caLeg(from, to.additionalData.course, to.additionalData.altitude, false, segment);
         case LegType.DF:
-            const transition = this.getTransition(this.getActiveLeg(), nextLeg);
-            return GuidanceManager.dfLeg(, to, segment);
+            //const transition = this.getTransition(this.getActiveLeg(), nextLeg);
+            //return GuidanceManager.dfLeg(, to, segment);
+            return GuidanceManager.tfBetween(from, to, segment);
         case LegType.RF:
             return GuidanceManager.rfLeg(from, to, to.additionalData.center, segment);
         case LegType.TF:

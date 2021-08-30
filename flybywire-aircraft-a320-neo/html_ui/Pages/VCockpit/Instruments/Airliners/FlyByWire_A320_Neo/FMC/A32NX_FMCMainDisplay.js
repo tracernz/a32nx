@@ -1,6 +1,8 @@
 class FMCMainDisplay extends BaseAirliners {
     constructor() {
         super(...arguments);
+        this.ppos = new LatLongAlt();
+        this.database = new Fmgc.Database(new Fmgc.ExternalBackend('http://localhost:5000'));
         this._conversionWeight = parseFloat(NXDataStore.get("CONFIG_USING_METRIC_UNIT", "1"));
         this.flightPhaseUpdateThrottler = new UpdateThrottler(800);
         this.fmsUpdateThrottler = new UpdateThrottler(250);
@@ -189,11 +191,12 @@ class FMCMainDisplay extends BaseAirliners {
         this.flightPhaseManager = new A32NX_FlightPhaseManager(this);
         this.guidanceManager = new Fmgc.GuidanceManager(this.flightPlanManager);
         this.guidanceController = new Fmgc.GuidanceController(this.flightPlanManager, this.guidanceManager);
-        this.navRadioManager = new Fmgc.NavRadioManager(this);
+        this.navRadioManager = Fmgc.NavRadioManager.instance;
 
         Fmgc.initFmgcLoop();
 
         this.guidanceController.init();
+        this.navRadioManager.init();
 
         this.tempCurve = new Avionics.Curve();
         this.tempCurve.interpolationFunction = Avionics.CurveTool.NumberInterpolation;
@@ -292,7 +295,7 @@ class FMCMainDisplay extends BaseAirliners {
         this.routeIndex = 0;
         this.coRoute = "";
         this.tmpOrigin = "";
-        this.transitionAltitude = 10000;
+        this.transitionAltitude = NaN;
         this.perfTOTemp = NaN;
         this._overridenFlapApproachSpeed = NaN;
         this._overridenSlatApproachSpeed = NaN;
@@ -516,6 +519,8 @@ class FMCMainDisplay extends BaseAirliners {
 
         Fmgc.updateFmgcLoop(_deltaTime);
 
+        this.ppos = Fmgc.calculateFmsPosition();
+
         if (this._debug++ > 180) {
             this._debug = 0;
         }
@@ -551,6 +556,8 @@ class FMCMainDisplay extends BaseAirliners {
         if (this.ilsUpdateThrottler.canUpdate(_deltaTime) !== -1) {
             this.updateIls();
         }
+
+        this.navRadioManager.update(_deltaTime);
     }
 
     /**
@@ -1433,7 +1440,23 @@ class FMCMainDisplay extends BaseAirliners {
                                         this.aocAirportList.init(this.tmpOrigin, airportTo.ident);
                                         this.tmpOrigin = airportTo.ident;
                                         SimVar.SetSimVarValue("L:FLIGHTPLAN_USE_DECEL_WAYPOINT", "number", 1);
-                                        callback(true);
+                                        this.database.getAirportByIdent(airportFrom.ident).then((airport) => {
+                                            if (airport.transitionAltitude && airport.transitionAltitude > 0) {
+                                                this.transitionAltitude = airport.transitionAltitude;
+                                            } else {
+                                                this.transitionAltitude = NaN;
+                                            }
+                                            this.transitionAltitudeIsPilotEntered = false;
+                                            this.database.getAirportByIdent(airportTo.ident).then((airport) => {
+                                                if (airport.transitionLevel && airport.transitionLevel > 0) {
+                                                    this.perfApprTransAlt = airport.transitionLevel * 100;
+                                                } else {
+                                                    this.perfApprTransAlt = NaN;
+                                                }
+                                                this.perfApprTransAltPilotEntered = false;
+                                                callback(true);
+                                            });
+                                        });
                                     });
                                 });
                             });
@@ -1914,7 +1937,15 @@ class FMCMainDisplay extends BaseAirliners {
         this._getOrSelectWaypoints(this.dataManager.GetVORsByIdent.bind(this.dataManager), ident, callback);
     }
     getOrSelectNDBsByIdent(ident, callback) {
-        this._getOrSelectWaypoints(this.dataManager.GetNDBsByIdent.bind(this.dataManager), ident, callback);
+        this.database.getNdbsByIdents([ident], this.ppos).then((ndbs) => {
+            if (ndbs.length === 0) {
+                return callback(undefined);
+            }
+            if (ndbs.length === 1) {
+                return callback(ndbs[0]);
+            }
+            A320_Neo_CDU_SelectWptPage.ShowPage(this, ndbs, callback);
+        });
     }
 
     getOrSelectWaypointByIdent(ident, callback) {

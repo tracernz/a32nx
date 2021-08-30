@@ -16,19 +16,20 @@ class A320_Neo_CDU_SelectWptPage {
             [""],
             ["<RETURN"]
         ];
-        function calculateDistance(w) {
-            const planeLla = new LatLongAlt(SimVar.GetSimVarValue("PLANE LATITUDE", "degree latitude"), SimVar.GetSimVarValue("PLANE LONGITUDE", "degree longitude"));
-            return Avionics.Utils.computeGreatCircleDistance(planeLla, w.infos.coordinates);
+
+        function calculateDistance(location) {
+            return Avionics.Utils.computeGreatCircleDistance(mcdu.ppos, location);
         }
 
-        const orderedWaypoints = [...waypoints].sort((a, b) => calculateDistance(a) - calculateDistance(b));
+        //const orderedWaypoints = [...waypoints].sort((a, b) => calculateDistance(a) - calculateDistance(b));
+        const orderedWaypoints = waypoints;
 
         for (let i = 0; i < 5; i++) {
             const w = orderedWaypoints[i + 5 * page];
             if (w) {
                 let t = "";
                 let freq = 0;
-                if (w.icao[0] === "V") {
+                /*if (w.icao[0] === "V") {
                     t = " VOR";
                     freq = (w.infos.frequencyMHz) ? fastToFixed(w.infos.frequencyMHz, 3).toString() : " ";
                 } else if (w.icao[0] === "N") {
@@ -37,12 +38,14 @@ class A320_Neo_CDU_SelectWptPage {
                 } else if (w.icao[0] === "A") {
                     t = " AIRPORT";
                     freq = " ";
-                }
+                }*/
 
-                const latString = (w.infos.coordinates.lat.toFixed(0) >= 0) ? `${w.infos.coordinates.lat.toFixed(0).toString().padStart(2, "0")}N` : `${Math.abs(w.infos.coordinates.lat.toFixed(0)).toString().padStart(2, "0")}S`;
-                const longString = (w.infos.coordinates.long.toFixed(0) >= 0) ? `${w.infos.coordinates.long.toFixed(0).toString().padStart(3, "0")}E` : `${Math.abs(w.infos.coordinates.long.toFixed(0)).toString().padStart(3, "0")}W`;
+                const location = w.location || w.vorLocation || w.dmeLocation;
 
-                const dist = Math.min(calculateDistance(w), 9999);
+                const latString = (location.lat.toFixed(0) >= 0) ? `${location.lat.toFixed(0).toString().padStart(2, "0")}N` : `${Math.abs(location.lat.toFixed(0)).toString().padStart(2, "0")}S`;
+                const longString = (location.long.toFixed(0) >= 0) ? `${location.long.toFixed(0).toString().padStart(3, "0")}E` : `${Math.abs(location.long.toFixed(0)).toString().padStart(3, "0")}W`;
+
+                const dist = Math.min(calculateDistance(location), 9999);
 
                 rows[2 * i].splice(0, 1, "{green}" + dist.toFixed(0) + "{end}NM");
                 rows[2 * i + 1] = ["*" + w.ident + "[color]cyan", freq + "[color]green", `${latString}/${longString}[color]green`];

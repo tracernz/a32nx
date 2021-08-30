@@ -1,7 +1,7 @@
-import { NdbNavaid } from "@fmgc/database/Types";
-import { KiloHertz } from "@typings/types";
+import { NdbNavaid } from "@fmgc/database/shared/types/NdbNavaid";
+import { KiloHertz } from "@fmgc/database/shared/types/Common";
 import { AdfTuner } from "@fmgc/radionav/Tuner";
-import { NavDataManager } from "@fmgc/database/NavDataManager";
+import { Database } from "@fmgc/database/Database";
 import { TuningMode } from "@fmgc/radionav/NavRadioManager";
 import { LatLongData } from "@typings/fs-base-ui";
 

@@ -10,6 +10,7 @@ import { RadioNeedle } from '../elements/RadioNeedles';
 import { ToWaypointIndicator } from '../elements/ToWaypointIndicator';
 import { EfisSide, EfisOption, Mode, RangeSetting } from '../index';
 import { ApproachMessage } from '../elements/ApproachMessage';
+import { MoraIndicator } from '../elements/MoraIndicator';
 
 export interface ArcModeProps {
     adirsAlign: boolean,
@@ -54,6 +55,7 @@ export const ArcMode: React.FC<ArcModeProps> = ({ adirsAlign, rangeSetting, side
                     flightPlanManager={flightPlanManager}
                     mapParams={mapParams}
                     constraints={efisOption === EfisOption.Constraints}
+                    side={side}
                     debug={false}
                     temp
                 />
@@ -69,6 +71,7 @@ export const ArcMode: React.FC<ArcModeProps> = ({ adirsAlign, rangeSetting, side
                             flightPlanManager={flightPlanManager}
                             mapParams={mapParams}
                             constraints={efisOption === EfisOption.Constraints}
+                            side={side}
                             debug={false}
                             temp={false}
                         />
@@ -87,6 +90,7 @@ export const ArcMode: React.FC<ArcModeProps> = ({ adirsAlign, rangeSetting, side
                     ilsCourse={ilsCourse}
                     lsDisplayed={lsDisplayed}
                 />
+                <MoraIndicator rangeSetting={rangeSetting} efisOption={efisOption} />
                 <ToWaypointIndicator info={flightPlanManager.getCurrentFlightPlan().computeActiveWaypointStatistics(ppos)} />
                 <ApproachMessage info={flightPlanManager.getAirportApproach()} flightPhase={fmgcFlightPhase} />
             </>

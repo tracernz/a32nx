@@ -6,16 +6,18 @@ import { useSimVar } from '@instruments/common/simVars';
 import { ToWaypointIndicator } from '../elements/ToWaypointIndicator';
 import { FlightPlan } from '../elements/FlightPlan';
 import { MapParameters } from '../utils/MapParameters';
-import { EfisOption } from '../index';
+import { EfisOption, EfisSide, RangeSetting } from '../index';
+import { MoraIndicator } from '../elements/MoraIndicator';
 
 export interface PlanModeProps {
-    rangeSetting: number,
+    rangeSetting: RangeSetting,
     ppos: LatLongData,
     efisOption: EfisOption,
+    side: EfisSide,
     mapHidden: boolean,
 }
 
-export const PlanMode: FC<PlanModeProps> = ({ rangeSetting, ppos, efisOption, mapHidden }) => {
+export const PlanMode: FC<PlanModeProps> = ({ rangeSetting, ppos, efisOption, side, mapHidden }) => {
     const flightPlanManager = useFlightPlanManager();
 
     const [selectedWaypointIndex] = useSimVar('L:A32NX_SELECTED_WAYPOINT', 'number', 50);
@@ -48,6 +50,7 @@ export const PlanMode: FC<PlanModeProps> = ({ rangeSetting, ppos, efisOption, ma
                 flightPlanManager={flightPlanManager}
                 mapParams={mapParams}
                 constraints={efisOption === EfisOption.Constraints}
+                side={side}
                 debug={false}
                 temp
             />
@@ -63,6 +66,7 @@ export const PlanMode: FC<PlanModeProps> = ({ rangeSetting, ppos, efisOption, ma
                     flightPlanManager={flightPlanManager}
                     mapParams={mapParams}
                     constraints={efisOption === EfisOption.Constraints}
+                    side={side}
                     debug={false}
                     temp={false}
                 />
@@ -70,6 +74,7 @@ export const PlanMode: FC<PlanModeProps> = ({ rangeSetting, ppos, efisOption, ma
             </g>
 
             <Overlay rangeSetting={rangeSetting} />
+            <MoraIndicator rangeSetting={rangeSetting} efisOption={efisOption} />
 
             <ToWaypointIndicator info={flightPlanManager.getCurrentFlightPlan().computeActiveWaypointStatistics(ppos)} />
         </>

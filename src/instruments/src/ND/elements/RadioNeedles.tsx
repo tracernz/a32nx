@@ -5,10 +5,17 @@ import { EfisSide, Mode } from '../index';
 
 type RadioNavPointerProps = { index: 1 | 2, side: EfisSide, displayMode: Mode, centreHeight: number };
 
+// TODO move
+enum ArincBusStatus {
+    None = 0, // no transmission e.g. system died
+    NCD,
+    Normal,
+}
+
 export const RadioNeedle: React.FC<RadioNavPointerProps> = ({ index, side, displayMode, centreHeight }) => {
     const [mode] = useSimVar(`L:A32NX_EFIS_${side}_NAVAID_${index}_MODE`, 'enum');
-    const [relativeBearing] = mode === NavAidMode.ADF ? useSimVar(`ADF RADIAL:${index}`, 'degrees') : useSimVar(`NAV RELATIVE BEARING TO STATION:${index}`, 'degrees');
-    const [available] = mode === NavAidMode.ADF ? useSimVar(`ADF SIGNAL:${index}`, 'number') : useSimVar(`NAV HAS NAV:${index}`, 'number');
+    const [relativeBearing] = useSimVar(`L:A32NX_NAVRADIO_${NavAidMode[mode]}${index}_SMOOTHED_BEARING`, 'degrees');
+    const [status] = useSimVar(`L:A32NX_NAVRADIO_${NavAidMode[mode]}${index}_STATUS`, 'boolean');
 
     let paths: Array<string>;
 
@@ -46,7 +53,7 @@ export const RadioNeedle: React.FC<RadioNavPointerProps> = ({ index, side, displ
         return null;
     }
 
-    return mode !== NavAidMode.Off && available && (
+    return mode !== NavAidMode.Off && status === ArincBusStatus.Normal && (
         <g transform={`rotate(${relativeBearing} 384 ${centreHeight})`}>
             <path
                 d={paths[index - 1]}
