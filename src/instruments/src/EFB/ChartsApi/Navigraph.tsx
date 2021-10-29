@@ -12,6 +12,13 @@ export interface ChartType {
     section: string,
 }
 
+export interface NavigraphBoundingBox {
+    bottomLeft: { lat: number, lon: number, xPx: number, yPx: number },
+    topRight: { lat: number, lon: number, xPx: number, yPx: number },
+    width: number,
+    height: number,
+}
+
 export interface NavigraphChart {
     fileDay: string,
     fileNight: string,
@@ -25,6 +32,7 @@ export interface NavigraphChart {
     indexNumber: string,
     procedureIdentifier: string,
     runway: string[],
+    boundingBox?: NavigraphBoundingBox,
 }
 
 export type NavigraphAirportCharts = {
@@ -238,6 +246,22 @@ export default class NavigraphClient {
                     indexNumber: chart.index_number,
                     procedureIdentifier: chart.procedure_identifier,
                     runway: chart.runway,
+                    boundingBox: chart.planview ? {
+                        bottomLeft: {
+                            lat: chart.planview.bbox_geo[1],
+                            lon: chart.planview.bbox_geo[0],
+                            xPx: chart.planview.bbox_local[0],
+                            yPx: chart.planview.bbox_local[1],
+                        },
+                        topRight: {
+                            lat: chart.planview.bbox_geo[3],
+                            lon: chart.planview.bbox_geo[2],
+                            xPx: chart.planview.bbox_local[2],
+                            yPx: chart.planview.bbox_local[3],
+                        },
+                        width: chart.bbox_local[2],
+                        height: chart.bbox_local[1],
+                    } : undefined,
                 }));
 
                 return {
@@ -287,6 +311,7 @@ export default class NavigraphClient {
             if (userInfoResp.ok) {
                 const userInfoJson = await userInfoResp.json();
 
+                console.log('userInfo', userInfoJson);
                 this.userName = userInfoJson.preferred_username;
             }
         }

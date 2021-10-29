@@ -1,11 +1,14 @@
 import React, { useContext, useEffect, useState, useRef } from 'react';
 import QRCode from 'qrcode.react';
 import { IconArrowsMaximize, IconArrowsMinimize, IconLock, IconMoon, IconSun, IconPlus, IconMinus } from '@tabler/icons';
+import { useSimVar } from '@instruments/common/simVars';
+import { numberLiteralTypeAnnotation } from '@babel/types';
 import useInterval from '../../Common/useInterval';
 import NavigraphClient, {
     AirportInfo,
     emptyNavigraphCharts,
     NavigraphAirportCharts,
+    NavigraphBoundingBox,
     NavigraphChart,
     NavigraphContext,
     useNavigraph,
@@ -31,7 +34,8 @@ type ChartsUiProps = {
 type NavigraphChartComponentProps = {
     chartLink: ChartDisplay,
     isFullscreen: boolean,
-    enableDarkCharts: boolean
+    enableDarkCharts: boolean,
+    boundingBox?: NavigraphBoundingBox,
     setIsFullscreen: (boolean) => void,
     setEnableDarkCharts: (boolean) => void,
 }
@@ -128,6 +132,31 @@ const NavigraphChartComponent = (props: NavigraphChartComponentProps) => {
     const navigraph = useNavigraph();
     const position = useRef({ top: 0, y: 0, left: 0, x: 0 });
     const ref = useRef<HTMLDivElement>(null);
+    const [aircraftIconVisible, setAircraftIconVisible] = useState<boolean>(false);
+    const [aircraftIconPosition, setAircraftIconPosition] = useState<{ x: number, y: number, r: number }>({ x: 0, y: 0, r: 0 });
+    const [aircraftLatitude] = useSimVar('PLANE LATITUDE', 'degree latitude', 1000);
+    const [aircraftLongitude] = useSimVar('PLANE LONGITUDE', 'degree longitude', 1000);
+    const [aircraftTrueHeading] = useSimVar('PLANE HEADING DEGREES TRUE', 'degrees', 1000);
+
+    useEffect(() => {
+        let visible = false;
+
+        console.log(props.boundingBox, aircraftLatitude, aircraftLongitude);
+
+        if (props.boundingBox && aircraftLatitude >= props.boundingBox.bottomLeft.lat && aircraftLatitude <= props.boundingBox.topRight.lat && aircraftLongitude >= props.boundingBox.bottomLeft.lon && aircraftLongitude <= props.boundingBox.topRight.lon) {
+            const dx = props.boundingBox.topRight.xPx - props.boundingBox.bottomLeft.xPx;
+            const dy = props.boundingBox.bottomLeft.yPx - props.boundingBox.topRight.yPx;
+            const dLat = props.boundingBox.topRight.lat - props.boundingBox.bottomLeft.lat;
+            const dLon = props.boundingBox.topRight.lon - props.boundingBox.bottomLeft.lon;
+            const x = props.boundingBox.bottomLeft.xPx + dx * ((aircraftLongitude - props.boundingBox.bottomLeft.lon) / dLon);
+            const y = props.boundingBox.topRight.yPx + dy * ((props.boundingBox.topRight.lat - aircraftLatitude) / dLat);
+            console.log(x, y);
+            setAircraftIconPosition({ x, y, r: aircraftTrueHeading });
+            visible = true;
+        }
+
+        setAircraftIconVisible(visible);
+    }, [props.boundingBox, aircraftLatitude.toFixed(2), aircraftLongitude.toFixed(2)]);
 
     const handleMouseDown = (event) => {
         position.current.top = ref.current ? ref.current.scrollTop : 0;
@@ -216,9 +245,24 @@ const NavigraphChartComponent = (props: NavigraphChartComponentProps) => {
                 <span className="absolute mt-2 ml-6 text-red-600 font-bold">
                     {`This chart is linked to ${navigraph.userName}`}
                 </span>
-                {!props.enableDarkCharts
-                    ? <img className="max-w-none" id="chart" draggable={false} src={props.chartLink.light} alt="chart" />
-                    : <img className="max-w-none" id="chart" draggable={false} src={props.chartLink.dark} alt="chart" />}
+                <div id="chart" className="max-w-none">
+                    {!props.enableDarkCharts
+                        ? <img draggable={false} src={props.chartLink.light} alt="chart" />
+                        : <img draggable={false} src={props.chartLink.dark} alt="chart" />}
+                    { aircraftIconVisible
+                        && (
+                            <svg viewBox={`0 0 ${props.boundingBox!.width} ${props.boundingBox!.height}`} style={{ position: 'absolute', top: 0, left: 0 }}>
+                                <g transform={`translate(${aircraftIconPosition.x} ${aircraftIconPosition.y}) rotate(${aircraftIconPosition.r})`} strokeLinecap="square">
+                                    <path d="M-20,0 L20,0" stroke="black" strokeWidth="7" />
+                                    <path d="M-10,20 L10,20" stroke="black" strokeWidth="7" />
+                                    <path d="M0,-10 L0,30" stroke="black" strokeWidth="7" />
+                                    <path d="M-20,0 L20,0" stroke="yellow" strokeWidth="5" />
+                                    <path d="M-10,20 L10,20" stroke="yellow" strokeWidth="5" />
+                                    <path d="M0,-10 L0,30" stroke="yellow" strokeWidth="5" />
+                                </g>
+                            </svg>
+                        )}
+                </div>
             </div>
         </div>
     );
@@ -282,7 +326,12 @@ const NavigraphChartSelector = (props: NavigraphChartSelectorProps) => {
                                 {item.charts.map((chart) => (
                                     <div
                                         className="flex flex-row bg-navy-medium"
-                                        onClick={() => props.onChartClick((chart as NavigraphChart).fileDay, (chart as NavigraphChart).fileNight, (chart as NavigraphChart).id)}
+                                        onClick={() => props.onChartClick(
+                                            (chart as NavigraphChart).fileDay,
+                                            (chart as NavigraphChart).fileNight,
+                                            (chart as NavigraphChart).id,
+                                            (chart as NavigraphChart).boundingBox,
+                                        )}
                                         key={(chart as NavigraphChart).id}
                                     >
                                         {(chart as NavigraphChart).id === props.selectedChartId
@@ -307,7 +356,12 @@ const NavigraphChartSelector = (props: NavigraphChartSelectorProps) => {
                         {props.selectedTab.charts.map((chart) => (
                             <div
                                 className="flex flex-row bg-navy-medium text-lg rounded-lg mr-4"
-                                onClick={() => props.onChartClick((chart as NavigraphChart).fileDay, (chart as NavigraphChart).fileNight, (chart as NavigraphChart).id)}
+                                onClick={() => props.onChartClick(
+                                    (chart as NavigraphChart).fileDay,
+                                    (chart as NavigraphChart).fileNight,
+                                    (chart as NavigraphChart).id,
+                                    (chart as NavigraphChart).boundingBox,
+                                )}
                                 key={(chart as NavigraphChart).id}
                             >
                                 {(chart as NavigraphChart).id === props.selectedChartId
@@ -349,6 +403,7 @@ const ChartsUi = (props: ChartsUiProps) => {
     const [selectedChartName, setSelectedChartName] = useState<ChartDisplay>({ light: '', dark: '' });
     const [selectedChartId, setSelectedChartId] = useState<string>('');
     const [chartLink, setChartLink] = useState<ChartDisplay>({ light: '', dark: '' });
+    const [selectedChartBoundingBox, setSelectedChartBoundingBox] = useState<NavigraphBoundingBox | undefined>();
 
     useEffect(() => {
         if (props.enableNavigraph) {
@@ -412,10 +467,12 @@ const ChartsUi = (props: ChartsUiProps) => {
         props.setIcao(newValue);
     };
 
-    const onChartClick = (chartNameDay: string, chartNameNight: string, chartId: string) => {
+    const onChartClick = (chartNameDay: string, chartNameNight: string, chartId: string, boundingBox?: NavigraphBoundingBox) => {
         setSelectedChartId(chartId);
 
         setSelectedChartName({ light: chartNameDay, dark: chartNameNight });
+
+        setSelectedChartBoundingBox(boundingBox);
     };
 
     const position = useRef({ top: 0, y: 0 });
@@ -516,6 +573,7 @@ const ChartsUi = (props: ChartsUiProps) => {
                                     enableDarkCharts={enableDarkCharts}
                                     setIsFullscreen={setIsFullscreen}
                                     setEnableDarkCharts={setEnableDarkCharts}
+                                    boundingBox={selectedChartBoundingBox}
                                 />
                             )
                             : <></>}
@@ -528,6 +586,7 @@ const ChartsUi = (props: ChartsUiProps) => {
                         enableDarkCharts={enableDarkCharts}
                         setIsFullscreen={setIsFullscreen}
                         setEnableDarkCharts={setEnableDarkCharts}
+                        boundingBox={selectedChartBoundingBox}
                     />
                 )}
         </div>
