@@ -10,6 +10,7 @@ import { EfisSymbols } from './efis/EfisSymbols';
 import { DescentBuilder } from './guidance/vnav/descent/DescentBuilder';
 import { DecelPathBuilder } from './guidance/vnav/descent/DecelPathBuilder';
 import { VerticalFlightPlanBuilder } from './guidance/vnav/verticalFlightPlan/VerticalFlightPlanBuilder';
+import { WaypointBuilder } from './flightplanning/WaypointBuilder';
 
 export {
     FlightPlanManager,
@@ -25,4 +26,5 @@ export {
     DescentBuilder,
     DecelPathBuilder,
     VerticalFlightPlanBuilder,
+    WaypointBuilder,
 };
