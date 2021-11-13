@@ -1,7 +1,7 @@
 export class MathUtils {
-   static DEEGREES_TO_RADIANS = Math.PI / 180;
+   static DEGREES_TO_RADIANS = Math.PI / 180;
 
-   static Rad2Deg = 180 / Math.PI;
+   static RADIANS_TO_DEGREES = 180 / Math.PI;
 
    private static optiPow10 = [];
 

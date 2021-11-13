@@ -1,9 +1,10 @@
-import { Guidable } from '@fmgc/guidance/Geometry';
+import { Coordinates } from '@fmgc/flightplanning/data/geo';
+import { Guidable } from '@fmgc/guidance/Guidable';
 
-export abstract class Transition implements Guidable {
+export abstract class Transition extends Guidable {
     abstract isAbeam(ppos: LatLongData): boolean;
 
-    recomputeWithParameters(_tas: Knots) {
+    recomputeWithParameters(_isActive: boolean, _tas: Knots, _gs: Knots, _ppos: Coordinates, _previousGuidable: Guidable, _nextGuidable: Guidable) {
         // Default impl.
     }
 
@@ -20,4 +21,6 @@ export abstract class Transition implements Guidable {
     abstract getTurningPoints(): [LatLongData, LatLongData];
 
     abstract get distance(): NauticalMiles;
+
+    abstract get repr(): string;
 }

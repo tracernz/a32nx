@@ -24,6 +24,7 @@
  */
 
 import { NXDataStore } from '@shared/persistence';
+import { LegType } from '@fmgc/types/fstypes/FSEnums';
 import { ManagedFlightPlan } from './ManagedFlightPlan';
 import { GPS } from './GPS';
 import { FlightPlanSegment } from './FlightPlanSegment';
@@ -291,6 +292,9 @@ export class FlightPlanManager {
         const currentFlightPlan = this._flightPlans[this._currentFlightPlanIndex];
         const airport = await this._parentInstrument.facilityLoader.getFacilityRaw(icao).catch(console.error);
         if (airport) {
+            airport.additionalData = {};
+            airport.additionalData.legType = LegType.IF;
+
             await currentFlightPlan.clearPlan().catch(console.error);
             await currentFlightPlan.addWaypoint(airport, 0);
             // clear pilot trans alt
@@ -438,7 +442,7 @@ export class FlightPlanManager {
         }
 
         // TODO get proper pos from FMGC
-        const fmPos =  {
+        const fmPos = {
             lat: SimVar.GetSimVarValue('PLANE LATITUDE', 'degree latitude'),
             long: SimVar.GetSimVarValue('PLANE LONGITUDE', 'degree longitude'),
         };

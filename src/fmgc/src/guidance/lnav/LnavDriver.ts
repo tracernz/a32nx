@@ -1,9 +1,9 @@
 import { LateralMode, VerticalMode } from '@shared/autopilot';
 import { TFLeg } from '@fmgc/guidance/lnav/legs/TF';
-import { Leg } from '@fmgc/guidance/lnav/legs';
 import { MathUtils } from '@shared/MathUtils';
 import { Geometry } from '@fmgc/guidance/Geometry';
 import { Type1Transition } from '@fmgc/guidance/lnav/transitions/Type1';
+import { Leg } from '@fmgc/guidance/lnav/legs/Leg';
 import { GuidanceComponent } from '../GuidanceComponent';
 import { ControlLaw } from '../ControlLaws';
 import { GuidanceController } from '../GuidanceController';
@@ -21,7 +21,7 @@ export class LnavDriver implements GuidanceComponent {
 
     private lastPhi: number;
 
-    private ppos: LatLongAlt = new LatLongAlt();
+    public ppos: LatLongAlt = new LatLongAlt();
 
     constructor(guidanceController: GuidanceController) {
         this.guidanceController = guidanceController;
@@ -75,6 +75,13 @@ export class LnavDriver implements GuidanceComponent {
             this.guidanceController.activeLegCompleteLegPathDtg = completeLegPathDtg;
             this.guidanceController.displayActiveLegCompleteLegPathDtg = completeDisplayLegPathDtg;
 
+            // Update activeTransIndex in GuidanceController
+            if (inboundTrans && inboundTrans.isAbeam(this.ppos)) {
+                this.guidanceController.activeTransIndex = activeLeg.indexInFullPath - 1;
+            } else if (outboundTrans && outboundTrans.isAbeam(this.ppos)) {
+                this.guidanceController.activeTransIndex = activeLeg.indexInFullPath;
+            }
+
             // Pseudo waypoint sequencing
 
             // FIXME when we have a path model, we don't have to do any of this business ?
@@ -115,13 +122,13 @@ export class LnavDriver implements GuidanceComponent {
 
             const params = geometry.getGuidanceParameters(this.ppos, trueTrack, gs);
 
-            if (this.lastLaw !== params.law) {
-                this.lastLaw = params.law;
-
-                SimVar.SetSimVarValue('L:A32NX_FG_CURRENT_LATERAL_LAW', 'number', params.law);
-            }
-
             if (params) {
+                if (this.lastLaw !== params.law) {
+                    this.lastLaw = params.law;
+
+                    SimVar.SetSimVarValue('L:A32NX_FG_CURRENT_LATERAL_LAW', 'number', params.law);
+                }
+
                 switch (params.law) {
                 case ControlLaw.LATERAL_PATH:
                     const {
@@ -184,6 +191,8 @@ export class LnavDriver implements GuidanceComponent {
                 }
 
                 available = true;
+            } else if (DEBUG) {
+                console.error('[FMS/LNAV] Guidance parameters from geometry are null.');
             }
 
             SimVar.SetSimVarValue('L:A32NX_GPS_WP_DISTANCE', 'nautical miles', dtg);

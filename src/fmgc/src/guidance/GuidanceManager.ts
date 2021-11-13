@@ -1,11 +1,14 @@
 import { RFLeg } from '@fmgc/guidance/lnav/legs/RF';
 import { TFLeg } from '@fmgc/guidance/lnav/legs/TF';
 import { VMLeg } from '@fmgc/guidance/lnav/legs/VM';
-import { Leg } from '@fmgc/guidance/lnav/legs';
-import { Transition } from '@fmgc/guidance/lnav/transitions';
-import { Type1Transition } from '@fmgc/guidance/lnav/transitions/Type1';
+import { Transition } from '@fmgc/guidance/lnav/Transition';
 import { SegmentType } from '@fmgc/wtsdk';
 import { Coordinates } from '@fmgc/flightplanning/data/geo';
+import { Leg } from '@fmgc/guidance/lnav/legs/Leg';
+import { CALeg } from '@fmgc/guidance/lnav/legs/CA';
+import { LegType } from '@fmgc/types/fstypes/FSEnums';
+import { TransitionPicker } from '@fmgc/guidance/lnav/TransitionPicker';
+import { IFLeg } from '@fmgc/guidance/lnav/legs/IF';
 import { Geometry } from './Geometry';
 import { FlightPlanManager } from '../flightplanning/FlightPlanManager';
 
@@ -22,6 +25,10 @@ export class GuidanceManager {
         this.flightPlanManager = flightPlanManager;
     }
 
+    private static ifLeg(fix: WayPoint, segment: SegmentType, indexInFullPath: number) {
+        return new IFLeg(fix, segment, indexInFullPath);
+    }
+
     private static tfBetween(from: WayPoint, to: WayPoint, segment: SegmentType, indexInFullPath: number) {
         return new TFLeg(from, to, segment, indexInFullPath);
     }
@@ -34,88 +41,94 @@ export class GuidanceManager {
         return new RFLeg(from, to, center, segment, indexInFullPath);
     }
 
-    getPreviousLeg(): RFLeg | TFLeg | VMLeg | null {
+    private static caLeg(course: DegreesTrue, altitude: Feet, segment: SegmentType, indexInFullPath: number) {
+        return new CALeg(course, altitude, segment, indexInFullPath);
+    }
+
+    /**
+     * Returns a {@link Leg} from two {@link WayPoint} objects. Only for fpm v1.
+     *
+     * @param from      the FROM waypoint
+     * @param to        the TO waypoint
+     * @param toIndex   index of the TO waypoint
+     * @param segment   flight plan segment
+     *
+     * @private
+     */
+    // TODO remove for fpm v2
+    private static legFromWaypoints(from: WayPoint, to: WayPoint, toIndex: number, segment: SegmentType): Leg {
+        if (to?.additionalData?.legType === LegType.IF) {
+            return GuidanceManager.ifLeg(to, segment, toIndex);
+        }
+
+        if (!from || !to) {
+            return null;
+        }
+
+        if (from.endsInDiscontinuity) {
+            return null;
+        }
+
+        if (to.additionalData) {
+            if (to.additionalData.legType === LegType.RF) {
+                return GuidanceManager.rfLeg(from, to, to.additionalData.center, segment, toIndex);
+            }
+            if (to.additionalData.legType === LegType.CA) {
+                const course = to.additionalData.vectorsCourse;
+                const altitude = to.additionalData.vectorsAltitude;
+
+                return GuidanceManager.caLeg(course, altitude, segment, toIndex);
+            }
+        }
+
+        if (to.isVectors) {
+            return GuidanceManager.vmWithHeading(to.additionalData.vectorsHeading, to.infos.coordinates, to.additionalData.vectorsCourse, segment, toIndex);
+        }
+
+        return GuidanceManager.tfBetween(from, to, segment, toIndex);
+    }
+
+    getPreviousLeg(): Leg | null {
         const activeIndex = this.flightPlanManager.getActiveWaypointIndex(false, false, 0);
 
         const from = this.flightPlanManager.getWaypoint(activeIndex - 2, 0);
         const to = this.flightPlanManager.getWaypoint(activeIndex - 1, 0);
         const segment = this.flightPlanManager.getSegmentFromWaypoint(to, 0).type;
 
-        if (!from || !to) {
-            return null;
-        }
-
-        if (from.endsInDiscontinuity) {
-            return null;
-        }
-
-        if (to.additionalData && to.additionalData.legType === 17) {
-            return GuidanceManager.rfLeg(from, to, to.additionalData.center, segment, activeIndex - 1);
-        }
-
-        if (to.isVectors) {
-            return GuidanceManager.vmWithHeading(to.additionalData.vectorsHeading, to.infos.coordinates, to.additionalData.vectorsCourse, segment, activeIndex - 1);
-        }
-
-        return GuidanceManager.tfBetween(from, to, segment, activeIndex - 1);
+        return GuidanceManager.legFromWaypoints(from, to, segment, activeIndex - 1);
     }
 
-    getActiveLeg(): RFLeg | TFLeg | VMLeg | null {
+    getActiveLeg(): Leg | null {
         const activeIndex = this.flightPlanManager.getActiveWaypointIndex(false, false, 0);
 
         const from = this.flightPlanManager.getWaypoint(activeIndex - 1, 0);
         const to = this.flightPlanManager.getWaypoint(activeIndex, 0);
         const segment = this.flightPlanManager.getSegmentFromWaypoint(to, 0).type;
 
-        if (!from || !to) {
-            return null;
-        }
-
-        if (from.endsInDiscontinuity) {
-            return null;
-        }
-
-        if (to.additionalData && to.additionalData.legType === 17) {
-            return GuidanceManager.rfLeg(from, to, to.additionalData.center, segment, activeIndex);
-        }
-
-        if (to.isVectors) {
-            return GuidanceManager.vmWithHeading(to.additionalData.vectorsHeading, to.infos.coordinates, to.additionalData.vectorsCourse, segment, activeIndex);
-        }
-
-        return GuidanceManager.tfBetween(from, to, segment, activeIndex);
+        return GuidanceManager.legFromWaypoints(from, to, segment, activeIndex);
     }
 
-    getNextLeg(): RFLeg | TFLeg | VMLeg | null {
+    getNextLeg(): Leg | null {
         const activeIndex = this.flightPlanManager.getActiveWaypointIndex(false, false, 0);
 
         const from = this.flightPlanManager.getWaypoint(activeIndex, 0);
         const to = this.flightPlanManager.getWaypoint(activeIndex + 1, 0);
         const segment = this.flightPlanManager.getSegmentFromWaypoint(to, 0).type;
 
-        if (!from || !to) {
-            return null;
-        }
+        return GuidanceManager.legFromWaypoints(from, to, segment, activeIndex + 1);
+    }
 
-        if (from.endsInDiscontinuity) {
-            return null;
-        }
+    getLeg(index: number): Leg | null {
+        const from = this.flightPlanManager.getWaypoint(index - 1, 0);
+        const to = this.flightPlanManager.getWaypoint(index, 0);
+        const segment = this.flightPlanManager.getSegmentFromWaypoint(to, 0).type;
 
-        if (to.additionalData && to.additionalData.legType === 17) {
-            return GuidanceManager.rfLeg(from, to, to.additionalData.center, segment, activeIndex + 1);
-        }
-
-        if (to.isVectors) {
-            return GuidanceManager.vmWithHeading(to.additionalData.vectorsHeading, to.infos.coordinates, to.additionalData.vectorsCourse, segment, activeIndex + 1);
-        }
-
-        return GuidanceManager.tfBetween(from, to, segment, activeIndex + 1);
+        return GuidanceManager.legFromWaypoints(from, to, segment, index);
     }
 
     /**
      * The active leg path geometry, used for immediate autoflight.
      */
-    // TODO Extract leg and transition building
     getActiveLegPathGeometry(): Geometry | null {
         const prevLeg = this.getPreviousLeg();
         const activeLeg = this.getActiveLeg();
@@ -129,21 +142,21 @@ export class GuidanceManager {
         const transitions = new Map<number, Transition>();
 
         if (prevLeg) {
-            if (prevLeg instanceof TFLeg && !(activeLeg instanceof RFLeg)) {
-                transitions.set(0, new Type1Transition(
-                    prevLeg,
-                    activeLeg,
-                ));
+            const transition = TransitionPicker.forLegs(prevLeg, activeLeg);
+
+            if (transition) {
+                transitions.set(0, transition);
             }
+
+            legs.set(0, prevLeg);
         }
 
         // TODO generalise selection of transitions
         if (nextLeg) {
-            if (activeLeg instanceof TFLeg && !(nextLeg instanceof RFLeg)) {
-                transitions.set(1, new Type1Transition(
-                    activeLeg,
-                    nextLeg,
-                ));
+            const transition = TransitionPicker.forLegs(activeLeg, nextLeg);
+
+            if (transition) {
+                transitions.set(1, transition);
             }
 
             legs.set(2, nextLeg);
@@ -155,7 +168,6 @@ export class GuidanceManager {
     /**
      * The full leg path geometry, used for the ND and predictions on the F-PLN page.
      */
-    // TODO Extract leg and transition building
     getMultipleLegGeometry(temp? : boolean): Geometry | null {
         if (temp) {
             if (this.flightPlanManager.getFlightPlan(1) === undefined) {
@@ -173,59 +185,20 @@ export class GuidanceManager {
             ? this.flightPlanManager.getFlightPlan(1).length
             : this.flightPlanManager.getCurrentFlightPlan().length;
         for (let i = wpCount - 1; (i >= activeIdx - 1); i--) {
+            // Leg
+            const currentLeg = this.getLeg(i);
+
+            if (currentLeg) {
+                legs.set(i, currentLeg);
+            }
+
             const nextLeg = legs.get(i + 1);
 
-            // We need to predict every path before the active leg + the active leg itself with the current speed
-            const predictWithCurrentSpeed = i <= activeIdx;
+            // Transition
+            const transition = TransitionPicker.forLegs(currentLeg, nextLeg);
 
-            const from = temp
-                ? this.flightPlanManager.getWaypoint(i - 1, 1)
-                : this.flightPlanManager.getWaypoint(i - 1);
-            const to = temp
-                ? this.flightPlanManager.getWaypoint(i, 1)
-                : this.flightPlanManager.getWaypoint(i);
-            const segment = temp
-                ? this.flightPlanManager.getSegmentFromWaypoint(to, 1).type
-                : this.flightPlanManager.getSegmentFromWaypoint(to).type;
-
-            // Reached the end or start of the flight plan
-            if (!from || !to) {
-                continue;
-            }
-
-            if (to.additionalData && to.additionalData.legType === 17) {
-                const currentLeg = GuidanceManager.rfLeg(from, to, to.additionalData.center, segment, i);
-                legs.set(i, currentLeg);
-
-                continue;
-            }
-
-            // If TO is a MANUAL leg, make a VM(FROM -> TO)
-            if (to.isVectors) {
-                const currentLeg = GuidanceManager.vmWithHeading(to.additionalData.vectorsHeading, to.infos.coordinates, to.additionalData.vectorsCourse, segment, i);
-                legs.set(i, currentLeg);
-
-                continue;
-            }
-
-            // If FROM ends in a discontinuity there is no leg "FROM -> TO"
-            if (from.endsInDiscontinuity) {
-                continue;
-            }
-
-            // Leg (hard-coded to TF for now)
-            const currentLeg = new TFLeg(from, to, segment, i);
-            legs.set(i, currentLeg);
-
-            // Transition (hard-coded to Type 1 for now)
-            if (nextLeg && nextLeg instanceof TFLeg || nextLeg instanceof VMLeg) { // FIXME this cannot happen, but what are you gonna do about it ?
-                const transition = new Type1Transition(
-                    currentLeg,
-                    nextLeg,
-                    predictWithCurrentSpeed,
-                );
-
-                transitions.set(i, transition);
+            if (transition) {
+                transitions.set(1, transition);
             }
         }
 

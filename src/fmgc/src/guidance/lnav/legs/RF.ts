@@ -1,14 +1,14 @@
 import { ControlLaw, GuidanceParameters } from '@fmgc/guidance/ControlLaws';
 import {
-    Leg,
     AltitudeConstraint,
     SpeedConstraint,
     getAltitudeConstraintFromWaypoint,
     getSpeedConstraintFromWaypoint,
-    waypointToLocation,
 } from '@fmgc/guidance/lnav/legs';
 import { SegmentType } from '@fmgc/wtsdk';
-import { arcDistanceToGo } from '../CommonGeometry';
+import { Coordinates } from '@fmgc/flightplanning/data/geo';
+import { Leg } from '@fmgc/guidance/lnav/legs/Leg';
+import { arcDistanceToGo, pointOnArc } from '../CommonGeometry';
 
 export class RFLeg extends Leg {
     // termination fix of the previous leg
@@ -59,7 +59,11 @@ export class RFLeg extends Leg {
         }
 
         this.mDistance = 2 * Math.PI * this.radius / 360 * this.angle;
+
+        this.terminator = this.to.infos.coordinates;
     }
+
+    terminator: Coordinates | undefined;
 
     get isCircularArc(): boolean {
         return true;
@@ -83,25 +87,11 @@ export class RFLeg extends Leg {
     }
 
     get initialLocation(): LatLongData {
-        return waypointToLocation(this.from);
-    }
-
-    get terminatorLocation(): LatLongData {
-        return waypointToLocation(this.to);
+        return this.from.infos.coordinates;
     }
 
     getPseudoWaypointLocation(distanceBeforeTerminator: NauticalMiles): LatLongData {
-        const distanceRatio = distanceBeforeTerminator / this.distance;
-        const angleFromTerminator = distanceRatio * this.angle;
-
-        const centerToTerminationBearing = Avionics.Utils.computeGreatCircleHeading(this.center, this.terminatorLocation);
-
-        return Avionics.Utils.bearingDistanceToCoordinates(
-            Avionics.Utils.clampAngle(centerToTerminationBearing + (this.clockwise ? -angleFromTerminator : angleFromTerminator)),
-            this.radius,
-            this.center.lat,
-            this.center.long,
-        );
+        return pointOnArc(distanceBeforeTerminator, this.to.infos.coordinates, this.center, this.clockwise, this.radius, this.angle, this.distance);
     }
 
     // basically straight from type 1 transition... willl need refinement
@@ -168,5 +158,9 @@ export class RFLeg extends Leg {
 
     toString(): string {
         return `<RFLeg radius=${this.radius} to=${this.to}>`;
+    }
+
+    get repr(): string {
+        return `RF(${this.radius.toFixed(1)}NM. ${this.angle.toFixed(1)}°) TO ${this.to.ident}`;
     }
 }

@@ -1,31 +1,33 @@
 import { MathUtils } from '@shared/MathUtils';
 import { TFLeg } from '@fmgc/guidance/lnav/legs/TF';
 import { VMLeg } from '@fmgc/guidance/lnav/legs/VM';
+import { RFLeg } from '@fmgc/guidance/lnav/legs/RF';
 import { Transition } from '@fmgc/guidance/lnav/Transition';
 import { ControlLaw, GuidanceParameters } from '@fmgc/guidance/ControlLaws';
 import { Coordinates } from '@fmgc/flightplanning/data/geo';
-import { Guidable } from '@fmgc/guidance/Guidable';
+import { CALeg } from '@fmgc/guidance/lnav/legs/CA';
+import { Constants } from '@shared/Constants';
+import { GuidanceConstants } from '@fmgc/guidance/GuidanceConstants';
+import { Geo } from '@fmgc/utils/Geo';
 import { arcDistanceToGo } from '../CommonGeometry';
 
+export type Type3PreviousLeg = /* AFLeg | */ CALeg | /* CDLeg | CFLeg | CRLeg | DFLeg | FALeg | FMLeg | HALeg | HFLeg | HMLeg | */ RFLeg | TFLeg | /* VALeg | VDLeg | */ VMLeg;
+export type Type3NextLeg = CALeg | /* CDLeg | CILeg | CRLeg | VALeg | VDLeg | VILeg | */ VMLeg;
+
 const mod = (x: number, n: number) => x - Math.floor(x / n) * n;
+const tan = (input: Degrees) => Math.tan(input * (Math.PI / 180));
 
 /**
  * A type I transition uses a fixed turn radius between two fix-referenced legs.
  */
-export class Type1Transition extends Transition {
-    public previousLeg: TFLeg;
+export class Type3Transition extends Transition {
+    public previousLeg: Type3PreviousLeg;
 
-    public nextLeg: TFLeg | VMLeg;
-
-    public radius: NauticalMiles;
-
-    public clockwise: boolean;
-
-    public isFrozen: boolean = false;
+    public nextLeg: Type3NextLeg;
 
     constructor(
-        previousLeg: TFLeg,
-        nextLeg: TFLeg | VMLeg, // FIXME this cannot happen, but what are you gonna do about it ?,
+        previousLeg: Type3PreviousLeg,
+        nextLeg: Type3NextLeg,
     ) {
         super();
         this.previousLeg = previousLeg;
@@ -38,74 +40,82 @@ export class Type1Transition extends Transition {
         return this.terminator;
     }
 
-    recomputeWithParameters(_isActive:boolean, tas: Knots, _gs:Knots, _ppos:Coordinates, _previousGuidable: Guidable, _nextGuidable: Guidable) {
-        if (this.isFrozen) {
-            if (DEBUG) {
-                console.log('[FMS/Geometry] Not recomputing Type I transition as it is frozen.');
+    get turnDirection(): Degrees {
+        return Math.sign(this.deltaTrack);
+    }
+
+    get deltaTrack(): Degrees {
+        return MathUtils.diffAngle(this.previousLeg.bearing, this.nextLeg.bearing);
+    }
+
+    get courseVariation(): Degrees {
+        // TODO reverse turn direction
+        return this.deltaTrack;
+    }
+
+    public isArc: boolean;
+
+    public startPoint: Coordinates;
+
+    public endPoint: Coordinates;
+
+    public center: Coordinates;
+
+    public sweepAngle: Degrees;
+
+    public radius: NauticalMiles;
+
+    public clockwise: boolean;
+
+    recomputeWithParameters(isActive: boolean, tas: Knots, gs: Knots, ppos: Coordinates) {
+        const termFix = this.previousLeg.getTerminator();
+
+        let courseChange;
+        let initialTurningPoint;
+        if (isActive) {
+            if (this.courseVariation <= 90) {
+                courseChange = this.deltaTrack;
+            } else if (Math.sign(this.courseVariation) === this.turnDirection) {
+                courseChange = this.deltaTrack;
+            } else {
+                courseChange = Math.sign(this.courseVariation) * 2 * Math.PI + this.deltaTrack;
             }
-            return;
+            initialTurningPoint = ppos;
+        } else {
+            courseChange = this.courseVariation;
+            initialTurningPoint = termFix;
         }
 
-        const courseChange = mod(this.nextLeg.bearing - this.previousLeg.bearing + 180, 360) - 180;
+        // Course change and delta track?
+        const radius = (gs ** 2 / (Constants.G * tan(Math.abs(GuidanceConstants.maxRollAngle)))) / 6080.2;
+        const turnCenter = Geo.computeDestinationPoint(initialTurningPoint, radius, this.previousLeg.bearing + 90 * Math.sign(courseChange));
+        const finalTurningPoint = Geo.computeDestinationPoint(turnCenter, radius, this.previousLeg.bearing - 90 * Math.sign(courseChange) + courseChange);
 
-        // Always at least 5 degrees turn
-        const minBankAngle = 5;
-
-        // Start with half the track change
-        const bankAngle = Math.abs(courseChange) / 2;
-
-        // Bank angle limits, always assume limit 2 for now @ 25 degrees between 150 and 300 knots
-        let maxBankAngle = 25;
-        if (tas < 150) {
-            maxBankAngle = 15 + Math.min(tas / 150, 1) * (25 - 15);
-        } else if (tas > 300) {
-            maxBankAngle = 25 - Math.min((tas - 300) / 150, 1) * (25 - 19);
-        }
-
-        const finalBankAngle = Math.max(Math.min(bankAngle, maxBankAngle), minBankAngle);
-
-        // Turn radius
-        this.radius = (tas ** 2 / (9.81 * Math.tan(finalBankAngle * Avionics.Utils.DEG2RAD))) / 6080.2;
+        this.radius = radius;
 
         // Turn direction
         this.clockwise = courseChange >= 0;
 
-        // Turning points
-        this.turningPoints = this.computeTurningPoints();
+        // FIXME PATH MODEL!!!!!!!!
+        if (courseChange === 0) {
+            this.isArc = false;
+            this.startPoint = this.previousLeg.getTerminator();
+            this.endPoint = this.previousLeg.getTerminator();
+        }
 
-        this.terminator = this.turningPoints[1];
-
-        this.isComputed = true;
+        this.isArc = true;
+        this.startPoint = initialTurningPoint;
+        this.center = turnCenter;
+        this.endPoint = finalTurningPoint;
+        this.sweepAngle = courseChange;
     }
 
     get isCircularArc(): boolean {
-        return true;
+        return this.isArc;
     }
 
     get angle(): Degrees {
-        const bearingFrom = this.previousLeg.bearing;
-        const bearingTo = this.nextLeg.bearing;
-        return Math.abs(MathUtils.diffAngle(bearingFrom, bearingTo));
-    }
-
-    /**
-     * Returns the center of the turning circle, with radius distance from both
-     * legs, i.e. min_distance(previous, center) = min_distance(next, center) = radius.
-     */
-    get center(): LatLongAlt {
-        const bisecting = (180 - this.angle) / 2;
-        const distanceCenterToWaypoint = this.radius / Math.sin(bisecting * Avionics.Utils.DEG2RAD);
-
-        const { lat, long } = this.previousLeg.to.infos.coordinates.toLatLong();
-
-        const inboundReciprocal = mod(this.previousLeg.bearing + 180, 360);
-
-        return Avionics.Utils.bearingDistanceToCoordinates(
-            mod(inboundReciprocal + (this.clockwise ? -bisecting : bisecting), 360),
-            distanceCenterToWaypoint,
-            lat,
-            long,
-        );
+        return this.sweepAngle;
     }
 
     isAbeam(ppos: LatLongData): boolean {
@@ -125,42 +135,8 @@ export class Type1Transition extends Transition {
         return circumference / 360 * this.angle;
     }
 
-    /**
-     * Returns the distance between the inbound turning point and the reference fix
-     */
-    get unflownDistance() {
-        return Avionics.Utils.computeGreatCircleDistance(
-            this.previousLeg.to.infos.coordinates,
-            this.getTurningPoints()[0],
-        );
-    }
-
-    private turningPoints;
-
-    private computeTurningPoints(): [LatLongAlt, LatLongAlt] {
-        const bisecting = (180 - this.angle) / 2;
-        const distanceTurningPointToWaypoint = this.radius / Math.tan(bisecting * Avionics.Utils.DEG2RAD);
-
-        const { lat, long } = this.previousLeg.to.infos.coordinates.toLatLong();
-
-        const inbound = Avionics.Utils.bearingDistanceToCoordinates(
-            mod(this.previousLeg.bearing + 180, 360),
-            distanceTurningPointToWaypoint,
-            lat,
-            long,
-        );
-        const outbound = Avionics.Utils.bearingDistanceToCoordinates(
-            this.nextLeg.bearing,
-            distanceTurningPointToWaypoint,
-            lat,
-            long,
-        );
-
-        return [inbound, outbound];
-    }
-
-    getTurningPoints(): [LatLongAlt, LatLongAlt] {
-        return this.turningPoints;
+    getTurningPoints(): [Coordinates, Coordinates] {
+        return [this.startPoint, this.endPoint];
     }
 
     /**

@@ -23,7 +23,7 @@
  */
 
 import { WaypointStats } from '@fmgc/flightplanning/data/flightplan';
-import { AltitudeDescriptor } from '../types/fstypes/FSEnums';
+import { AltitudeDescriptor, LegType } from '../types/fstypes/FSEnums';
 import { FlightPlanSegment, SegmentType } from './FlightPlanSegment';
 import { LegsProcedure } from './LegsProcedure';
 import { RawDataMapper } from './RawDataMapper';
@@ -767,6 +767,11 @@ export class ManagedFlightPlan {
         const selectedOriginRunwayIndex = this.procedureDetails.originRunwayIndex;
 
         const airportInfo = origin.infos as AirportInfo;
+
+        // Make origin fix an IF leg
+        if (origin) {
+            origin.additionalData.legType = LegType.IF;
+        }
 
         // Set origin fix coordinates to runway beginning coordinates
         if (origin && selectedOriginRunwayIndex !== -1) {

@@ -19,6 +19,7 @@ import { PlanMode } from './pages/PlanMode';
 import { RoseMode } from './pages/RoseMode';
 
 import './styles.scss';
+import { LnavStatus } from './elements/LnavStatus';
 
 const NavigationDisplay: React.FC = () => {
     const [displayIndex] = useState(() => {
@@ -105,6 +106,10 @@ const NavigationDisplay: React.FC = () => {
                 <svg className="nd-svg" version="1.1" viewBox="0 0 768 768">
                     <SpeedIndicator adrs={airDataReferenceSource} irs={inertialReferenceSource} />
                     <WindIndicator adrs={airDataReferenceSource} irs={inertialReferenceSource} />
+
+                    {DEBUG && (
+                        <LnavStatus />
+                    )}
 
                     {modeIndex === Mode.PLAN && (
                         <PlanMode

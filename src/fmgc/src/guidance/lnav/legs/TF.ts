@@ -1,17 +1,19 @@
 import { ControlLaw, GuidanceParameters } from '@fmgc/guidance/ControlLaws';
 import { MathUtils } from '@shared/MathUtils';
-import { EARTH_RADIUS_NM } from '@fmgc/guidance/Geometry';
 import {
     AltitudeConstraint,
     getAltitudeConstraintFromWaypoint,
     getSpeedConstraintFromWaypoint,
-    Leg,
     SpeedConstraint,
-    waypointToLocation,
 } from '@fmgc/guidance/lnav/legs';
 import { SegmentType } from '@fmgc/wtsdk';
 import { GeoMath } from '@fmgc/flightplanning/GeoMath';
 import { WaypointConstraintType } from '@fmgc/flightplanning/FlightPlanManager';
+import { Coordinates } from '@fmgc/flightplanning/data/geo';
+import { Type1Transition } from '@fmgc/guidance/lnav/transitions/Type1';
+import { Leg } from '@fmgc/guidance/lnav/legs/Leg';
+import { Guidable } from '@fmgc/guidance/Guidable';
+import { Constants } from '@shared/Constants';
 
 export class TFLeg extends Leg {
     public from: WayPoint;
@@ -30,6 +32,22 @@ export class TFLeg extends Leg {
         this.segment = segment;
         this.indexInFullPath = indexInFullPath;
         this.constraintType = to.constraintType;
+    }
+
+    private nextGuidable: Guidable;
+
+    getTerminator(): Coordinates | undefined {
+        if (this.nextGuidable instanceof Type1Transition) {
+            return this.nextGuidable.getTurningPoints()[0];
+        }
+
+        return this.to.infos.coordinates;
+    }
+
+    recomputeWithParameters(_isActive: boolean, _tas: Knots, _gs: Knots, _ppos: Coordinates, _previousGuidable: Guidable, nextGuidable: Guidable) {
+        this.nextGuidable = nextGuidable;
+
+        this.isComputed = true;
     }
 
     get isCircularArc(): boolean {
@@ -66,11 +84,7 @@ export class TFLeg extends Leg {
     }
 
     get initialLocation(): LatLongData {
-        return waypointToLocation(this.from);
-    }
-
-    get terminatorLocation(): LatLongData {
-        return waypointToLocation(this.to);
+        return this.from.infos.coordinates;
     }
 
     getPseudoWaypointLocation(distanceBeforeTerminator: NauticalMiles): LatLongData {
@@ -82,8 +96,8 @@ export class TFLeg extends Leg {
         return Avionics.Utils.bearingDistanceToCoordinates(
             inverseBearing,
             distanceBeforeTerminator,
-            this.terminatorLocation.lat,
-            this.terminatorLocation.long,
+            this.getTerminator().lat,
+            this.getTerminator().long,
         );
     }
 
@@ -117,7 +131,7 @@ export class TFLeg extends Leg {
     }
 
     getAlongTrackDistanceTo(start: LatLongData, end: LatLongData, ppos: LatLongData): number {
-        const R = EARTH_RADIUS_NM;
+        const R = Constants.EARTH_RADIUS_NM;
 
         const d13 = Avionics.Utils.computeGreatCircleDistance(start, ppos) / R;
         const Theta13 = Avionics.Utils.DEG2RAD * Avionics.Utils.computeGreatCircleHeading(start, ppos);
@@ -160,10 +174,10 @@ export class TFLeg extends Leg {
         const desiredOffset = 0;
         const actualOffset = (
             Math.asin(
-                Math.sin(Avionics.Utils.DEG2RAD * (distanceAC / EARTH_RADIUS_NM))
+                Math.sin(Avionics.Utils.DEG2RAD * (distanceAC / Constants.EARTH_RADIUS_NM))
                 * Math.sin(Avionics.Utils.DEG2RAD * (bearingAC - bearingAB)),
             ) * Avionics.Utils.RAD2DEG
-        ) * EARTH_RADIUS_NM;
+        ) * Constants.EARTH_RADIUS_NM;
         const crossTrackError = desiredOffset - actualOffset;
 
         return {
@@ -223,7 +237,7 @@ export class TFLeg extends Leg {
         return distanceAX <= this.distance;
     }
 
-    toString(): string {
-        return `<TFLeg from=${this.from} to=${this.to}>`;
+    get repr(): string {
+        return `TF TO ${this.to.ident}`;
     }
 }

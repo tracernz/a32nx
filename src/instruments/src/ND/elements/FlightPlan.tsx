@@ -1,7 +1,7 @@
 //  Copyright (c) 2021 FlyByWire Simulations
 //  SPDX-License-Identifier: GPL-3.0
 
-import React, { FC, memo, useEffect, useState } from 'react';
+import React, { FC, memo, useCallback, useEffect, useState } from 'react';
 import { Geometry } from '@fmgc/guidance/Geometry';
 import { Type1Transition } from '@fmgc/guidance/lnav/transitions/Type1';
 import { GuidanceManager } from '@fmgc/guidance/GuidanceManager';
@@ -13,10 +13,10 @@ import { FlightPlanManager } from '@fmgc/flightplanning/FlightPlanManager';
 import { RFLeg } from '@fmgc/guidance/lnav/legs/RF';
 import { TFLeg } from '@fmgc/guidance/lnav/legs/TF';
 import { VMLeg } from '@fmgc/guidance/lnav/legs/VM';
-import { Leg } from '@fmgc/guidance/lnav/legs';
 import { Transition } from '@fmgc/guidance/lnav/transitions';
 import { NdSymbol, NdSymbolTypeFlags } from '@shared/NavigationDisplay';
 import { useCurrentFlightPlan } from '@instruments/common/flightplan';
+import { Leg } from '@fmgc/guidance/lnav/legs/Leg';
 import { MapParameters } from '../utils/MapParameters';
 
 export enum FlightPlanType {
@@ -45,6 +45,24 @@ export const FlightPlan: FC<FlightPathProps> = memo(({ x = 0, y = 0, symbols, fl
         ? [tempGeometry, setTempGeometry]
         : [activeGeometry, setActiveGeometry];
 
+    const recomputeGeometry = useCallback(() => {
+        const tas = SimVar.GetSimVarValue('AIRSPEED TRUE', 'Knots');
+        const gs = SimVar.GetSimVarValue('GPS GROUND SPEED', 'Knots');
+
+        const ppos = {
+            lat: SimVar.GetSimVarValue('PLANE LATITUDE', 'Degrees') ?? 0,
+            long: SimVar.GetSimVarValue('PLANE LONGITUDE', 'Degrees') ?? 0,
+        };
+
+        const activeIdx = type === FlightPlanType.Temp
+            ? flightPlanManager.getFlightPlan(1).activeWaypointIndex
+            : flightPlanManager.getCurrentFlightPlan().activeWaypointIndex;
+
+        if (tas !== null && gs !== null) {
+            geometry?.recomputeWithParameters(tas, gs, ppos, activeIdx, 0);
+        }
+    }, [type, flightPlanManager, geometry]);
+
     // Create new geometry for new flight plan versions
     useEffect(() => {
         if (type === FlightPlanType.Temp) {
@@ -52,30 +70,26 @@ export const FlightPlan: FC<FlightPathProps> = memo(({ x = 0, y = 0, symbols, fl
         } else {
             setGeometry(guidanceManager.getMultipleLegGeometry());
         }
+
+        debugger;
+        recomputeGeometry();
     }, [flightPlanVersion]);
 
     // Recompute geometry every 5 seconds
-    useInterval(() => {
-        const tas = SimVar.GetSimVarValue('AIRSPEED TRUE', 'Knots');
-
-        const activeIdx = type === FlightPlanType.Temp
-            ? flightPlanManager.getFlightPlan(1).activeWaypointIndex
-            : flightPlanManager.getCurrentFlightPlan().activeWaypointIndex;
-
-        if (tas !== null) {
-            geometry?.recomputeWithParameters(tas, activeIdx);
-        }
-    }, 5_000, { additionalDeps: [type, flightPlanManager, geometry] });
+    useInterval(() => recomputeGeometry(), 5_000, { additionalDeps: [type, flightPlanManager, geometry] });
 
     useCurrentFlightPlan();
 
-    if (!mapParams.valid) {
-        return null;
-    }
+    const [flightPath, setFlightPath] = useState<string>();
 
-    let flightPath: string = '';
-    if (geometry) {
-        flightPath = makePathFromGeometry(geometry, mapParams);
+    useEffect(() => {
+        if (geometry && geometry.isComputed) {
+            setFlightPath(makePathFromGeometry(geometry, mapParams));
+        }
+    });
+
+    if (!flightPath || !mapParams.valid) {
+        return null;
     }
 
     const constraintFlags = NdSymbolTypeFlags.ConstraintMet | NdSymbolTypeFlags.ConstraintMissed | NdSymbolTypeFlags.ConstraintUnknown;

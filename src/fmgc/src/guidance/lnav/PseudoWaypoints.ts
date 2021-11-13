@@ -4,11 +4,11 @@ import { VnavConfig, VnavDescentMode } from '@fmgc/guidance/vnav/VnavConfig';
 import { NdSymbolTypeFlags } from '@shared/NavigationDisplay';
 import { Geometry } from '@fmgc/guidance/Geometry';
 import { Coordinates } from '@fmgc/flightplanning/data/geo';
-import { Leg } from '@fmgc/guidance/lnav/legs';
 import { WaypointStats } from '@fmgc/flightplanning/data/flightplan';
 import { GuidanceController } from '@fmgc/guidance/GuidanceController';
 import { LateralMode } from '@shared/autopilot';
 import { Type1Transition } from '@fmgc/guidance/lnav/transitions/Type1';
+import { Leg } from '@fmgc/guidance/lnav/legs/Leg';
 
 const PWP_IDENT_TOD = '(T/D)';
 const PWP_IDENT_DECEL = '(DECEL)';
@@ -82,6 +82,25 @@ export class PseudoWaypoints implements GuidanceComponent {
                     displayedOnMcdu: true,
                     stats: PseudoWaypoints.computePseudoWaypointStats(PWP_IDENT_DECEL, geometry.legs.get(alongLegIndex), distanceFromLegTermination),
                 });
+            }
+
+            for (let i = 0; i < 75; i++) {
+                const point = PseudoWaypoints.pointFromEndOfPath(geometry, this.guidanceController.vnavDriver.currentApproachProfile.decel + i / 2, `(BRUH${i}`);
+
+                if (point) {
+                    const [efisSymbolLla, distanceFromLegTermination, alongLegIndex] = point;
+
+                    newPseudoWaypoints.push({
+                        ident: `(BRUH${i})`,
+                        sequencingType: PseudoWaypointSequencingAction.TOD_REACHED,
+                        alongLegIndex,
+                        distanceFromLegTermination,
+                        efisSymbolFlag: NdSymbolTypeFlags.PwpTopOfDescent,
+                        efisSymbolLla,
+                        displayedOnMcdu: true,
+                        stats: PseudoWaypoints.computePseudoWaypointStats(`(BRUH${i})`, geometry.legs.get(alongLegIndex), distanceFromLegTermination),
+                    });
+                }
             }
         }
 
@@ -218,7 +237,6 @@ export class PseudoWaypoints implements GuidanceComponent {
             console.log(`[FMS/PWP] Starting placement of PWP '${debugString}': dist: ${distanceFromEnd.toFixed(2)}nm`);
         }
 
-        // FIXME take transitions into account on newer FMSs
         for (const [i, leg] of path.legs) {
             const inboundTrans = path.transitions.get(i - 1);
             const outboundTrans = path.transitions.get(i);

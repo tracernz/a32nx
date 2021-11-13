@@ -29,6 +29,8 @@ export class GuidanceController {
 
     public activeLegIndex: number;
 
+    public activeTransIndex: number;
+
     public activeLegDtg: NauticalMiles;
 
     public activeLegCompleteLegPathDtg: NauticalMiles;
@@ -75,14 +77,11 @@ export class GuidanceController {
             this.geometryRecomputationTimer = 0;
 
             const tas = SimVar.GetSimVarValue('AIRSPEED TRUE', 'Knots');
+            const gs = SimVar.GetSimVarValue('GPS GROUND SPEED', 'Knots');
 
-            if (this.currentActiveLegPathGeometry) {
-                this.currentActiveLegPathGeometry.recomputeWithParameters(tas, this.activeLegIndex);
-            }
+            this.recomputeGeometry();
 
             if (this.currentMultipleLegGeometry) {
-                this.currentMultipleLegGeometry.recomputeWithParameters(tas, this.activeLegIndex);
-
                 this.vnavDriver.acceptMultipleLegGeometry(this.currentMultipleLegGeometry);
                 this.pseudoWaypoints.acceptMultipleLegGeometry(this.currentMultipleLegGeometry);
             }
@@ -100,9 +99,24 @@ export class GuidanceController {
         this.currentActiveLegPathGeometry = this.guidanceManager.getActiveLegPathGeometry();
         this.currentMultipleLegGeometry = this.guidanceManager.getMultipleLegGeometry();
 
-        // Avoid dual updates if geometry was gonna be recomputed soon
-        if (this.geometryRecomputationTimer > GEOMETRY_RECOMPUTATION_TIMER - 1_000) {
-            this.geometryRecomputationTimer = 0;
+        this.recomputeGeometry();
+
+        this.geometryRecomputationTimer = 0;
+        this.vnavDriver.acceptMultipleLegGeometry(this.currentMultipleLegGeometry);
+        this.pseudoWaypoints.acceptMultipleLegGeometry(this.currentMultipleLegGeometry);
+    }
+
+    recomputeGeometry() {
+        const tas = SimVar.GetSimVarValue('AIRSPEED TRUE', 'Knots');
+        const gs = SimVar.GetSimVarValue('GPS GROUND SPEED', 'Knots');
+
+        if (this.currentActiveLegPathGeometry) {
+            this.currentActiveLegPathGeometry.recomputeWithParameters(tas, gs, this.lnavDriver.ppos, this.activeLegIndex, this.activeTransIndex);
+        }
+
+        if (this.currentMultipleLegGeometry) {
+            this.currentMultipleLegGeometry.recomputeWithParameters(tas, gs, this.lnavDriver.ppos, this.activeLegIndex, this.activeTransIndex);
+
             this.vnavDriver.acceptMultipleLegGeometry(this.currentMultipleLegGeometry);
             this.pseudoWaypoints.acceptMultipleLegGeometry(this.currentMultipleLegGeometry);
         }
