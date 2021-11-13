@@ -284,6 +284,14 @@ const addWaypointAsync = (fix, mcdu, routeIdent, via) => {
     }
 };
 
+const addLatLongWaypoint = async (mcdu, lat, long, ident) => {
+    return new Promise((resolve, reject) => {
+        const wpIndex = mcdu.flightPlanManager.getWaypointsCount() - 1;
+        const wp = mcdu.dataManager.createLatLonWaypoint(new LatLongAlt(lat, long), true, ident);
+        mcdu.flightPlanManager.addUserWaypoint(wp, wpIndex, resolve);
+    });
+};
+
 const uplinkRoute = async (mcdu) => {
     const {navlog} = mcdu.simbrief;
 
@@ -314,6 +322,21 @@ const uplinkRoute = async (mcdu) => {
                 console.log("Inserting waypoint: " + fix.ident);
                 await addWaypointAsync(fix, mcdu, fix.ident);
                 continue;
+            }
+            if (fix.via_airway.match(/^NAT[A-Z]$/)) {
+                console.log(`Inserting NAT track waypoint ${fix.ident} for ${fix.via_airway}`);
+                try {
+                    if (fix.ident.match(/^[0-9]{2}N[0-9]{3}W$/)) {
+                        // TODO should be just default ident LLXX?
+                        await addLatLongWaypoint(mcdu, parseFloat(fix.pos_lat), parseFloat(fix.pos_long), fix.ident);
+                    } else {
+                        await addWaypointAsync(fix, mcdu, fix.ident);
+                    }
+                } catch (err) {
+                    console.error(err);
+                } finally {
+                    continue;
+                }
             }
             if (nextFix.via_airway !== fix.via_airway) {
                 // last fix of airway
