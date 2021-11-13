@@ -1,4 +1,5 @@
 import { MathUtils } from '@shared/MathUtils';
+import { CALeg } from '@fmgc/guidance/lnav/legs/CA';
 import { TFLeg } from '@fmgc/guidance/lnav/legs/TF';
 import { VMLeg } from '@fmgc/guidance/lnav/legs/VM';
 import { Transition } from '@fmgc/guidance/lnav/Transition';
@@ -7,15 +8,18 @@ import { Coordinates } from '@fmgc/flightplanning/data/geo';
 import { Guidable } from '@fmgc/guidance/Guidable';
 import { arcDistanceToGo } from '../CommonGeometry';
 
+export type Type1PreviousLeg = /* CFLeg | DFLeg | */ TFLeg;
+export type Type1NextLeg = /* CFLeg | FALeg | FMLeg | PILeg | */ TFLeg;
+
 const mod = (x: number, n: number) => x - Math.floor(x / n) * n;
 
 /**
  * A type I transition uses a fixed turn radius between two fix-referenced legs.
  */
 export class Type1Transition extends Transition {
-    public previousLeg: TFLeg;
+    public previousLeg: Type1PreviousLeg | CALeg; // FIXME temporary
 
-    public nextLeg: TFLeg | VMLeg;
+    public nextLeg: Type1NextLeg | VMLeg; // FIXME temporary
 
     public radius: NauticalMiles;
 
@@ -24,8 +28,8 @@ export class Type1Transition extends Transition {
     public isFrozen: boolean = false;
 
     constructor(
-        previousLeg: TFLeg,
-        nextLeg: TFLeg | VMLeg, // FIXME this cannot happen, but what are you gonna do about it ?,
+        previousLeg: Type1PreviousLeg | CALeg, // FIXME temporary
+        nextLeg: Type1PreviousLeg | VMLeg, // FIXME temporary
     ) {
         super();
         this.previousLeg = previousLeg;

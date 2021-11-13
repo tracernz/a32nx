@@ -23,11 +23,11 @@ const tan = (input: Degrees) => Math.tan(input * (Math.PI / 180));
 export class Type3Transition extends Transition {
     public previousLeg: Type3PreviousLeg;
 
-    public nextLeg: Type3NextLeg;
+    public nextLeg: Type3NextLeg | TFLeg; // FIXME temporary
 
     constructor(
         previousLeg: Type3PreviousLeg,
-        nextLeg: Type3NextLeg,
+        nextLeg: Type3NextLeg | TFLeg, // FIXME temporary
     ) {
         super();
         this.previousLeg = previousLeg;
@@ -45,7 +45,7 @@ export class Type3Transition extends Transition {
     }
 
     get deltaTrack(): Degrees {
-        return MathUtils.diffAngle(this.previousLeg.bearing, this.nextLeg.bearing);
+        return MathUtils.fastToFixedNum(MathUtils.diffAngle(this.previousLeg.bearing, this.nextLeg.bearing), 1);
     }
 
     get courseVariation(): Degrees {
@@ -87,6 +87,7 @@ export class Type3Transition extends Transition {
         }
 
         // Course change and delta track?
+        debugger;
         const radius = (gs ** 2 / (Constants.G * tan(Math.abs(GuidanceConstants.maxRollAngle)))) / 6080.2;
         const turnCenter = Geo.computeDestinationPoint(initialTurningPoint, radius, this.previousLeg.bearing + 90 * Math.sign(courseChange));
         const finalTurningPoint = Geo.computeDestinationPoint(turnCenter, radius, this.previousLeg.bearing - 90 * Math.sign(courseChange) + courseChange);
@@ -101,6 +102,10 @@ export class Type3Transition extends Transition {
             this.isArc = false;
             this.startPoint = this.previousLeg.getTerminator();
             this.endPoint = this.previousLeg.getTerminator();
+
+            this.isComputed = true;
+
+            return;
         }
 
         this.isArc = true;
@@ -108,6 +113,8 @@ export class Type3Transition extends Transition {
         this.center = turnCenter;
         this.endPoint = finalTurningPoint;
         this.sweepAngle = courseChange;
+
+        this.isComputed = true;
     }
 
     get isCircularArc(): boolean {

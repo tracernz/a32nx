@@ -39,7 +39,13 @@ export class TransitionPicker {
     }
 
     private static fromCA(from: CALeg, to: Leg): Transition | null {
-        if (to instanceof CALeg || to instanceof VMLeg) {
+        if (to instanceof TFLeg) {
+            return new Type3Transition(from, to);
+        }
+        if (to instanceof VMLeg) {
+            return new Type3Transition(from, to);
+        }
+        if (to instanceof CALeg) {
             return new Type3Transition(from, to);
         }
 

@@ -13,10 +13,14 @@ import { FlightPlanManager } from '@fmgc/flightplanning/FlightPlanManager';
 import { RFLeg } from '@fmgc/guidance/lnav/legs/RF';
 import { TFLeg } from '@fmgc/guidance/lnav/legs/TF';
 import { VMLeg } from '@fmgc/guidance/lnav/legs/VM';
-import { Transition } from '@fmgc/guidance/lnav/transitions';
+import { Transition } from '@fmgc/guidance/lnav/Transition';
 import { NdSymbol, NdSymbolTypeFlags } from '@shared/NavigationDisplay';
 import { useCurrentFlightPlan } from '@instruments/common/flightplan';
 import { Leg } from '@fmgc/guidance/lnav/legs/Leg';
+import { CALeg } from '@fmgc/guidance/lnav/legs/CA';
+import { Type3Transition } from '@fmgc/guidance/lnav/transitions/Type3';
+import { Coordinates } from '@fmgc/flightplanning/data/geo';
+import { IFLeg } from '@fmgc/guidance/lnav/legs/IF';
 import { MapParameters } from '../utils/MapParameters';
 
 export enum FlightPlanType {
@@ -71,7 +75,6 @@ export const FlightPlan: FC<FlightPathProps> = memo(({ x = 0, y = 0, symbols, fl
             setGeometry(guidanceManager.getMultipleLegGeometry());
         }
 
-        debugger;
         recomputeGeometry();
     }, [flightPlanVersion]);
 
@@ -88,7 +91,7 @@ export const FlightPlan: FC<FlightPathProps> = memo(({ x = 0, y = 0, symbols, fl
         }
     });
 
-    if (!flightPath || !mapParams.valid) {
+    if (!mapParams.valid) {
         return null;
     }
 
@@ -582,116 +585,157 @@ function makePathFromGeometry(geometry: Geometry, mapParams: MapParameters): str
     const path: string[] = [];
 
     for (const [i, leg] of geometry.legs.entries()) {
-        const transitionBefore = geometry.transitions.get(i - 1);
-        const transition = geometry.transitions.get(i);
+        const prevLeg = geometry.legs.get(i - 1);
 
-        let x;
-        let y;
+        const inboundTransition = geometry.transitions.get(i - 1);
+        const outboundTransition = geometry.transitions.get(i);
 
         if (leg instanceof TFLeg) {
-            if (transition) {
+            if (outboundTransition) {
                 // This is the transition after this leg - so since we are going in reverse order, draw it first
-                if (transition instanceof Type1Transition) {
-                    const [inLla, outLla] = transition.getTurningPoints();
+                const [itp, ftp] = outboundTransition.getTurningPoints();
 
-                    // Move to inbound point
-                    const [inX, inY] = mapParams.coordinatesToXYy(inLla);
-                    x = MathUtils.fastToFixed(inX, 1);
-                    y = MathUtils.fastToFixed(inY, 1);
-
-                    path.push(`M ${x} ${y}`);
-
-                    const r = MathUtils.fastToFixed(transition.radius * mapParams.nmToPx, 0);
-
-                    // Draw arc to outbound point
-                    const [outX, outY] = mapParams.coordinatesToXYy(outLla);
-                    x = MathUtils.fastToFixed(outX, 1);
-                    y = MathUtils.fastToFixed(outY, 1);
-                    const cw = transition.clockwise;
-
-                    path.push(`A ${r} ${r} 0 ${transition.angle >= 180 ? 1 : 0} ${cw ? 1 : 0} ${x} ${y}`);
+                if (outboundTransition instanceof Type1Transition || outboundTransition instanceof Type3Transition) {
+                    path.push(...drawArc(
+                        mapParams,
+                        itp,
+                        ftp,
+                        outboundTransition.radius,
+                        outboundTransition.angle,
+                        outboundTransition.clockwise,
+                    ));
                 }
             }
 
             // Draw the orthodromic path of the TF leg
 
-            // If we have a transition *before*, we need to go to the inbound turning point of it, not to the TO fix
+            // If we have a transition *before*, we need to go to the outbound turning point of it, not to the TO fix
             let fromLla;
-            if (transitionBefore) {
-                if (transitionBefore instanceof Type1Transition) {
-                    fromLla = transitionBefore.getTurningPoints()[1];
-                }
+            if (inboundTransition) {
+                fromLla = inboundTransition.getTurningPoints()[1];
             } else {
                 fromLla = leg.from.infos.coordinates;
             }
 
-            const [fromX, fromY] = mapParams.coordinatesToXYy(fromLla);
-
-            x = MathUtils.fastToFixed(fromX, 1);
-            y = MathUtils.fastToFixed(fromY, 1);
-
-            path.push(`M ${x} ${y}`);
-
             // If we have a transition *after*, we need to go to the inbound turning point of it, not to the TO fix
             let toLla;
-            if (transition) {
-                if (transition instanceof Type1Transition) {
-                    toLla = transition.getTurningPoints()[0];
-                }
+            if (outboundTransition) {
+                toLla = outboundTransition.getTurningPoints()[0];
             } else {
                 toLla = leg.to.infos.coordinates;
             }
 
-            const [toX, toY] = mapParams.coordinatesToXYy(toLla);
-            x = MathUtils.fastToFixed(toX, 1);
-            y = MathUtils.fastToFixed(toY, 1);
-
-            path.push(`L ${x} ${y}`);
+            path.push(...drawLine(
+                mapParams,
+                fromLla,
+                toLla,
+            ));
         } else if (leg instanceof VMLeg) {
-            if (transitionBefore && transitionBefore instanceof Type1Transition) {
-                const fromLla = transitionBefore.getTurningPoints()[1];
-
-                const [fromX, fromY] = mapParams.coordinatesToXYy(fromLla);
-
-                x = MathUtils.fastToFixed(fromX, 1);
-                y = MathUtils.fastToFixed(fromY, 1);
-
-                path.push(`M ${x} ${y}`);
-
-                const farAway = mapParams.nmRadius + 2;
+            if (inboundTransition) {
+                const fromLla = inboundTransition.getTurningPoints()[1];
                 const farAwayPoint = Avionics.Utils.bearingDistanceToCoordinates(
                     leg.bearing,
-                    farAway,
+                    mapParams.nmRadius + 2,
                     fromLla.lat,
                     fromLla.long,
                 );
 
-                const [toX, toY] = mapParams.coordinatesToXYy(farAwayPoint);
-
-                x = MathUtils.fastToFixed(toX, 1);
-                y = MathUtils.fastToFixed(toY, 1);
-
-                path.push(`L ${x} ${y}`);
+                path.push(...drawLine(
+                    mapParams,
+                    fromLla,
+                    farAwayPoint,
+                ));
             }
         } else if (leg instanceof RFLeg) {
-            // Move to inbound point
-            const [inX, inY] = mapParams.coordinatesToXYy(leg.from.infos.coordinates);
-            x = MathUtils.fastToFixed(inX, 1);
-            y = MathUtils.fastToFixed(inY, 1);
+            path.push(...drawArc(
+                mapParams,
+                leg.from.infos.coordinates,
+                leg.to.infos.coordinates,
+                leg.radius,
+                leg.angle,
+                leg.clockwise,
+            ));
+        } else if (leg instanceof CALeg) {
+            if (outboundTransition && outboundTransition instanceof Type3Transition) {
+                if (outboundTransition.isArc) {
+                    path.push(...drawArc(
+                        mapParams,
+                        outboundTransition.startPoint,
+                        outboundTransition.endPoint,
+                        outboundTransition.radius,
+                        outboundTransition.sweepAngle,
+                        outboundTransition.clockwise,
+                    ));
+                } else {
+                    // TODO line bruh
+                }
+            }
 
-            path.push(`M ${x} ${y}`);
+            // Draw straight path
 
-            const r = MathUtils.fastToFixed(leg.radius * mapParams.nmToPx, 0);
-
-            // Draw arc to outbound point
-            const [outX, outY] = mapParams.coordinatesToXYy(leg.to.infos.coordinates);
-            x = MathUtils.fastToFixed(outX, 1);
-            y = MathUtils.fastToFixed(outY, 1);
-            const cw = leg.clockwise;
-
-            path.push(`A ${r} ${r} 0 ${leg.angle >= 180 ? 1 : 0} ${cw ? 1 : 0} ${x} ${y}`);
-        } // TODO CALeg
+            // If we have an inbound transition, we draw to its terminator. Otherwise, to the previous leg's terminator if there is one
+            if (inboundTransition || prevLeg) {
+                path.push(...drawLine(
+                    mapParams,
+                    leg.getTerminator()!,
+                    inboundTransition ? inboundTransition.getTerminator()! : prevLeg!.getTerminator()!,
+                ));
+            }
+        } else if (leg instanceof IFLeg) {
+            // Do nothing
+        }
     }
 
     return path.join(' ');
+}
+
+function drawArc(mapParams: MapParameters, itp: Coordinates, ftp: Coordinates, radius: NauticalMiles, sweepAngle: Degrees, clockwise: boolean): string[] {
+    const path: string[] = [];
+
+    let x;
+    let y;
+
+    // Move to inbound point
+    const [inX, inY] = mapParams.coordinatesToXYy(itp);
+    x = MathUtils.fastToFixed(inX, 1);
+    y = MathUtils.fastToFixed(inY, 1);
+
+    path.push(`M ${x} ${y}`);
+
+    const r = MathUtils.fastToFixed(radius * mapParams.nmToPx, 2);
+
+    // Draw arc to outbound point
+    const [outX, outY] = mapParams.coordinatesToXYy(ftp);
+    x = MathUtils.fastToFixed(outX, 1);
+    y = MathUtils.fastToFixed(outY, 1);
+    const cw = clockwise;
+
+    path.push(`A ${r} ${r} 0 ${sweepAngle >= 180 ? 1 : 0} ${cw ? 1 : 0} ${x} ${y}`);
+
+    return path;
+}
+
+function drawLine(mapParams: MapParameters, start: Coordinates, end: Coordinates): string[] {
+    const path: string[] = [];
+
+    let x;
+    let y;
+
+    // Move to start point
+    const [fromX, fromY] = mapParams.coordinatesToXYy(start);
+
+    x = MathUtils.fastToFixed(fromX, 1);
+    y = MathUtils.fastToFixed(fromY, 1);
+
+    path.push(`M ${x} ${y}`);
+
+    // Move to end point
+    const [toX, toY] = mapParams.coordinatesToXYy(end);
+
+    x = MathUtils.fastToFixed(toX, 1);
+    y = MathUtils.fastToFixed(toY, 1);
+
+    path.push(`L ${x} ${y}`);
+
+    return path;
 }

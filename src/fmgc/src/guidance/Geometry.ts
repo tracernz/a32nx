@@ -1,5 +1,5 @@
 import { VMLeg } from '@fmgc/guidance/lnav/legs/VM';
-import { Transition } from '@fmgc/guidance/lnav/transitions';
+import { Transition } from '@fmgc/guidance/lnav/Transition';
 import { Type1Transition } from '@fmgc/guidance/lnav/transitions/Type1';
 import { TFLeg } from '@fmgc/guidance/lnav/legs/TF';
 import { GeoMath } from '@fmgc/flightplanning/GeoMath';
@@ -52,6 +52,7 @@ export class Geometry {
 
             const currentSpeedPredictedTas = Math.max(tas, 150);
             const predictedLegTas = predictWithCurrentSpeed ? currentSpeedPredictedTas : (Geometry.getLegPredictedTas(leg) ?? currentSpeedPredictedTas);
+            const predictedLegGs = 250; // FIXME temporary
 
             if (DEBUG) {
                 console.log(`[FMS/Geometry] Predicted leg (${leg.repr}) with tas: ${predictedLegTas}kts`);
@@ -66,7 +67,7 @@ export class Geometry {
             leg.recomputeWithParameters(
                 activeLegIdx === index || activeLegIdx === leg.indexInFullPath,
                 predictedLegTas,
-                gs,
+                predictedLegGs,
                 ppos,
                 legInbound,
                 legOutbound,
@@ -75,7 +76,7 @@ export class Geometry {
             legOutbound?.recomputeWithParameters(
                 activeTransIdx === index || activeTransIdx === leg.indexInFullPath,
                 predictedLegTas,
-                gs,
+                predictedLegGs,
                 ppos,
                 leg,
                 nextLeg,

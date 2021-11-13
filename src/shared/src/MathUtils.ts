@@ -19,6 +19,20 @@ export class MathUtils {
        return (Math.round(val * coefficient) / coefficient).toString();
    }
 
+   public static fastToFixedNum(val: number, fraction: number): number {
+       if (fraction <= 0) {
+           return Math.round(val);
+       }
+
+       let coefficient = MathUtils.optiPow10[fraction];
+       if (!coefficient || Number.isNaN(coefficient)) {
+           coefficient = 10 ** fraction;
+           MathUtils.optiPow10[fraction] = coefficient;
+       }
+
+       return (Math.round(val * coefficient) / coefficient);
+   }
+
    public static diffAngle(a: number, b: number): number {
        let diff = b - a;
        while (diff > 180) {

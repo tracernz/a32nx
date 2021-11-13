@@ -108,7 +108,7 @@ export class GuidanceController {
 
     recomputeGeometry() {
         const tas = SimVar.GetSimVarValue('AIRSPEED TRUE', 'Knots');
-        const gs = SimVar.GetSimVarValue('GPS GROUND SPEED', 'Knots');
+        const gs = SimVar.GetSimVarValue('GPS GROUND SPEED', 'meters per second');
 
         if (this.currentActiveLegPathGeometry) {
             this.currentActiveLegPathGeometry.recomputeWithParameters(tas, gs, this.lnavDriver.ppos, this.activeLegIndex, this.activeTransIndex);
