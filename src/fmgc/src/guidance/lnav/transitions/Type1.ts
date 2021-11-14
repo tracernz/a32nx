@@ -1,14 +1,13 @@
 import { MathUtils } from '@shared/MathUtils';
-import { CALeg } from '@fmgc/guidance/lnav/legs/CA';
 import { TFLeg } from '@fmgc/guidance/lnav/legs/TF';
-import { VMLeg } from '@fmgc/guidance/lnav/legs/VM';
+import { DFLeg } from '@fmgc/guidance/lnav/legs/DF';
 import { Transition } from '@fmgc/guidance/lnav/Transition';
 import { ControlLaw, GuidanceParameters } from '@fmgc/guidance/ControlLaws';
 import { Coordinates } from '@fmgc/flightplanning/data/geo';
 import { Guidable } from '@fmgc/guidance/Guidable';
 import { arcDistanceToGo } from '../CommonGeometry';
 
-export type Type1PreviousLeg = /* CFLeg | DFLeg | */ TFLeg;
+export type Type1PreviousLeg = /* CFLeg | */ DFLeg | TFLeg;
 export type Type1NextLeg = /* CFLeg | FALeg | FMLeg | PILeg | */ TFLeg;
 
 const mod = (x: number, n: number) => x - Math.floor(x / n) * n;
@@ -17,9 +16,9 @@ const mod = (x: number, n: number) => x - Math.floor(x / n) * n;
  * A type I transition uses a fixed turn radius between two fix-referenced legs.
  */
 export class Type1Transition extends Transition {
-    public previousLeg: Type1PreviousLeg | CALeg; // FIXME temporary
+    public previousLeg: Type1PreviousLeg;
 
-    public nextLeg: Type1NextLeg | VMLeg; // FIXME temporary
+    public nextLeg: Type1NextLeg;
 
     public radius: NauticalMiles;
 
@@ -28,8 +27,8 @@ export class Type1Transition extends Transition {
     public isFrozen: boolean = false;
 
     constructor(
-        previousLeg: Type1PreviousLeg | CALeg, // FIXME temporary
-        nextLeg: Type1PreviousLeg | VMLeg, // FIXME temporary
+        previousLeg: Type1PreviousLeg, // FIXME temporary
+        nextLeg: Type1NextLeg, // FIXME temporary
     ) {
         super();
         this.previousLeg = previousLeg;
@@ -100,7 +99,7 @@ export class Type1Transition extends Transition {
         const bisecting = (180 - this.angle) / 2;
         const distanceCenterToWaypoint = this.radius / Math.sin(bisecting * Avionics.Utils.DEG2RAD);
 
-        const { lat, long } = this.previousLeg.to.infos.coordinates.toLatLong();
+        const { lat, long } = this.previousLeg.getTerminator();
 
         const inboundReciprocal = mod(this.previousLeg.bearing + 180, 360);
 
@@ -134,7 +133,7 @@ export class Type1Transition extends Transition {
      */
     get unflownDistance() {
         return Avionics.Utils.computeGreatCircleDistance(
-            this.previousLeg.to.infos.coordinates,
+            this.previousLeg.getTerminator(),
             this.getTurningPoints()[0],
         );
     }
@@ -145,7 +144,7 @@ export class Type1Transition extends Transition {
         const bisecting = (180 - this.angle) / 2;
         const distanceTurningPointToWaypoint = this.radius / Math.tan(bisecting * Avionics.Utils.DEG2RAD);
 
-        const { lat, long } = this.previousLeg.to.infos.coordinates.toLatLong();
+        const { lat, long } = this.previousLeg.getTerminator();
 
         const inbound = Avionics.Utils.bearingDistanceToCoordinates(
             mod(this.previousLeg.bearing + 180, 360),

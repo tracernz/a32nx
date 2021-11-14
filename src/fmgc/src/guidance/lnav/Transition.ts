@@ -4,7 +4,7 @@ import { Guidable } from '@fmgc/guidance/Guidable';
 export abstract class Transition extends Guidable {
     abstract isAbeam(ppos: LatLongData): boolean;
 
-    recomputeWithParameters(_isActive: boolean, _tas: Knots, _gs: Knots, _ppos: Coordinates, _previousGuidable: Guidable, _nextGuidable: Guidable) {
+    recomputeWithParameters(_isActive: boolean, _tas: Knots, _gs: MetresPerSecond, _ppos: Coordinates, _previousGuidable: Guidable, _nextGuidable: Guidable) {
         // Default impl.
     }
 

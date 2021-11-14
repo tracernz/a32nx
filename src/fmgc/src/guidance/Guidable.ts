@@ -19,7 +19,7 @@ export abstract class Guidable {
      * @param previousGuidable  previous guidable before leg
      * @param nextGuidable      next guidable after leg
      */
-    abstract recomputeWithParameters(isActive: boolean, tas: Knots, gs: Knots, ppos: Coordinates, previousGuidable: Guidable, nextGuidable: Guidable): void;
+    abstract recomputeWithParameters(isActive: boolean, tas: Knots, gs: MetresPerSecond, ppos: Coordinates, previousGuidable: Guidable, nextGuidable: Guidable): void;
 
     abstract getGuidanceParameters(ppos: Coordinates, trueTrack: Degrees): GuidanceParameters | undefined;
 

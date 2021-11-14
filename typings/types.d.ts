@@ -8,6 +8,7 @@ declare global {
     type Knots = number;
     type FeetPerMinute = number;
     type Metres = number;
+    type MetresPerSecond = number;
     type Mach = number;
     type Degrees = number;
     type DegreesMagnetic = number;
