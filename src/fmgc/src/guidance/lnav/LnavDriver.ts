@@ -49,10 +49,10 @@ export class LnavDriver implements GuidanceComponent {
 
             const inboundTrans = geometry.transitions.get(0);
             const activeLeg = geometry.legs.get(1);
-            const outboundTrans = geometry.transitions.get(1) instanceof Type1Transition ? geometry.transitions.get(1) as Type1Transition : null;
+            const outboundTrans = geometry.transitions.get(1) ? geometry.transitions.get(1) : null;
 
             let completeDisplayLegPathDtg;
-            if (inboundTrans instanceof Type1Transition) {
+            if (inboundTrans instanceof Type1Transition && !inboundTrans.isNull) {
                 if (inboundTrans.isAbeam(this.ppos)) {
                     const inboundHalfDistance = inboundTrans.distance / 2;
                     const inboundDtg = inboundTrans.getDistanceToGo(this.ppos);

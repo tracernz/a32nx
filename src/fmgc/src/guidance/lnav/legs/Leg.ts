@@ -8,8 +8,6 @@ export abstract class Leg extends Guidable {
 
     indexInFullPath: number;
 
-    abstract get isCircularArc(): boolean;
-
     abstract get inboundCourse(): Degrees | undefined;
 
     abstract get outboundCourse(): Degrees | undefined;
@@ -19,8 +17,6 @@ export abstract class Leg extends Guidable {
     abstract get speedConstraint(): SpeedConstraint | undefined;
 
     abstract get altitudeConstraint(): AltitudeConstraint | undefined;
-
-    abstract get initialLocation(): LatLongData | undefined;
 
     /** @inheritDoc */
     recomputeWithParameters(_isActive: boolean, _tas: Knots, _gs: Knots, _ppos: Coordinates, _previousGuidable: Guidable, _nextGuidable: Guidable): void {

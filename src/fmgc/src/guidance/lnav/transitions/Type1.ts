@@ -6,6 +6,7 @@ import { ControlLaw, GuidanceParameters } from '@fmgc/guidance/ControlLaws';
 import { Coordinates } from '@fmgc/flightplanning/data/geo';
 import { Guidable } from '@fmgc/guidance/Guidable';
 import { arcDistanceToGo } from '../CommonGeometry';
+import { PathVector, PathVectorType } from '../PathVector';
 
 export type Type1PreviousLeg = /* CFLeg | */ DFLeg | TFLeg;
 export type Type1NextLeg = /* CFLeg | FALeg | FMLeg | PILeg | */ TFLeg;
@@ -26,6 +27,8 @@ export class Type1Transition extends Transition {
 
     public isFrozen: boolean = false;
 
+    private computedPath: PathVector[] = [];
+
     constructor(
         previousLeg: Type1PreviousLeg, // FIXME temporary
         nextLeg: Type1NextLeg, // FIXME temporary
@@ -37,8 +40,23 @@ export class Type1Transition extends Transition {
 
     private terminator: Coordinates | undefined;
 
-    getTerminator(): Coordinates | undefined {
-        return this.terminator;
+    getPathStartPoint(): Coordinates | undefined {
+        if (this.isComputed) {
+            return this.turningPoints[0];
+        }
+    }
+
+    getPathEndPoint(): Coordinates | undefined {
+        if (this.isComputed) {
+            return this.turningPoints[1];
+        }
+    }
+
+    get isNull(): boolean {
+        return Math.abs(Avionics.Utils.diffAngle(
+            this.previousLeg.outboundCourse,
+            this.nextLeg.inboundCourse,
+        )) <= 3;
     }
 
     recomputeWithParameters(_isActive:boolean, tas: Knots, _gs:Knots, _ppos:Coordinates, _previousGuidable: Guidable, _nextGuidable: Guidable) {
@@ -99,7 +117,7 @@ export class Type1Transition extends Transition {
         const bisecting = (180 - this.angle) / 2;
         const distanceCenterToWaypoint = this.radius / Math.sin(bisecting * Avionics.Utils.DEG2RAD);
 
-        const { lat, long } = this.previousLeg.getTerminator();
+        const { lat, long } = this.previousLeg.getPathEndPoint();
 
         const inboundReciprocal = mod(this.previousLeg.outboundCourse + 180, 360);
 
@@ -133,7 +151,7 @@ export class Type1Transition extends Transition {
      */
     get unflownDistance() {
         return Avionics.Utils.computeGreatCircleDistance(
-            this.previousLeg.getTerminator(),
+            this.previousLeg.getPathEndPoint(),
             this.getTurningPoints()[0],
         );
     }
@@ -159,11 +177,32 @@ export class Type1Transition extends Transition {
             long,
         );
 
+        const centreFix = Avionics.Utils.bearingDistanceToCoordinates(
+            this.previousLeg.outboundCourse + (Avionics.Utils.diffAngle(this.nextLeg.inboundCourse, this.previousLeg.outboundCourse) / 2) + (this.clockwise ? 90 : -90),
+            this.radius,
+            lat,
+            long,
+        );
+
+        this.computedPath = [
+            {
+                type: PathVectorType.Arc,
+                startPoint: inbound,
+                endPoint: outbound,
+                centrePoint: centreFix,
+                sweepAngle: this.clockwise ? this.angle : -this.angle,
+            }
+        ]
+
         return [inbound, outbound];
     }
 
     getTurningPoints(): [LatLongAlt, LatLongAlt] {
         return this.turningPoints;
+    }
+
+    get predictedPath(): PathVector[] {
+        return this.computedPath;
     }
 
     /**

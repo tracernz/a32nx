@@ -28,11 +28,11 @@ export class Geo {
     }
 
     static distanceToLeg(from: Coordinates, leg: Leg): NauticalMiles {
-        return Geo.getDistance(from, Geo.doublePlaceBearingIntercept(from, leg.getTerminator(), leg.bearing - 90, leg.bearing - 180));
+        return Geo.getDistance(from, Geo.doublePlaceBearingIntercept(from, leg.getPathEndPoint(), leg.bearing - 90, leg.bearing - 180));
     }
 
     static legIntercept(from: Coordinates, bearing: DegreesTrue, leg: Leg): Coordinates {
-        return Geo.doublePlaceBearingIntercept(from, leg.getTerminator(), bearing, leg.bearing - 180);
+        return Geo.doublePlaceBearingIntercept(from, leg.getPathEndPoint(), bearing, leg.bearing - 180);
     }
 
     static placeBearingPlaceDistanceIntercept(bearingPoint: Coordinates, distancePoint: Coordinates, bearing: DegreesTrue, distance: NauticalMiles): Coordinates {

@@ -3,6 +3,7 @@ import { ControlLaw, GuidanceParameters } from '@fmgc/guidance/ControlLaws';
 import { MathUtils } from '@shared/MathUtils';
 import { Constants } from '@shared/Constants';
 import { Convert } from '@shared/Convert';
+import { LateralPathGuidance } from '@fmgc/guidance/ControlLaws';
 
 /**
  * Compute the remaining distance around an arc
@@ -21,6 +22,11 @@ export function arcDistanceToGo(ppos: Coordinates, itp: Coordinates, centreFix: 
     const refFrameOffset = Avionics.Utils.diffAngle(0, itpBearing);
     const pposAngle = sweepAngle < 0 ? Avionics.Utils.clampAngle(refFrameOffset - pposBearing) : Avionics.Utils.clampAngle(pposBearing - refFrameOffset);
 
+    // before the arc... this implies max sweep angle is <340, arinc allows less than that anyway
+    if (pposAngle >= 340) {
+        return radius * Math.PI * Math.abs(sweepAngle) / 180;
+    }
+
     if (pposAngle >= Math.abs(sweepAngle)) {
         return 0;
     }
@@ -37,7 +43,7 @@ export function arcDistanceToGo(ppos: Coordinates, itp: Coordinates, centreFix: 
  * @param sweepAngle angle swept around the arc, +ve for clockwise
  * @returns {GuidanceParameters} lateral path law params
  */
-export function arcGuidance(ppos: Coordinates, trueTrack: Degrees, itp: Coordinates, centreFix: Coordinates, sweepAngle: Degrees): GuidanceParameters {
+export function arcGuidance(ppos: Coordinates, trueTrack: Degrees, itp: Coordinates, centreFix: Coordinates, sweepAngle: Degrees): LateralPathGuidance {
     const bearingPpos = Avionics.Utils.computeGreatCircleHeading(
         centreFix,
         ppos,
@@ -70,31 +76,26 @@ export function arcGuidance(ppos: Coordinates, trueTrack: Degrees, itp: Coordina
  *
  * @param distanceFromFtp distance before end of arc
  * @param ftp             arc exit point
- * @param centrePoint     arc centre point
- * @param clockwise       whether the arc goes clockwise
- * @param radius          arc radius
- * @param sweepAngle      arc sweep angle
- * @param distance        arc distance
+ * @param centreFix       arc centre fix
+ * @param sweepAngle      angle swept around the arc, +ve for clockwise
  */
 export function pointOnArc(
     distanceFromFtp: NauticalMiles,
     ftp: Coordinates,
-    centrePoint: Coordinates,
-    clockwise: boolean,
-    radius: NauticalMiles,
+    centreFix: Coordinates,
     sweepAngle: Degrees,
-    distance: NauticalMiles,
 ): Coordinates {
-    const distanceRatio = distanceFromFtp / distance;
-    const angleFromTerminator = distanceRatio * sweepAngle;
+    const radius = Avionics.Utils.computeGreatCircleDistance(centreFix, ftp);
+    const distanceRatio = distanceFromFtp / (Math.PI * 2 * radius);
+    const angleFromFtp = -distanceRatio * sweepAngle;
 
-    const centerToTerminationBearing = Avionics.Utils.computeGreatCircleHeading(centrePoint, ftp);
+    const centerToTerminationBearing = Avionics.Utils.computeGreatCircleHeading(centreFix, ftp);
 
     return Avionics.Utils.bearingDistanceToCoordinates(
-        Avionics.Utils.clampAngle(centerToTerminationBearing + (clockwise ? -angleFromTerminator : angleFromTerminator)),
+        Avionics.Utils.clampAngle(centerToTerminationBearing + angleFromFtp),
         radius,
-        centrePoint.lat,
-        centrePoint.long,
+        centreFix.lat,
+        centreFix.long,
     );
 }
 
@@ -106,4 +107,52 @@ export function pointOnArc(
  */
 export function arcNominalRoll(gs: Knots, radius: NauticalMiles): Degrees {
     return (this.clockwise ? 1 : -1) * Math.atan((gs ** 2) / (radius * Convert.NM_TO_M * Constants.G)) * MathUtils.RADIANS_TO_DEGREES;
+}
+
+export function maxBank(tas: Knots, toGuidedPath: boolean): Degrees {
+    if (toGuidedPath) {
+        // roll limit 2 from honeywell doc
+        if (tas < 100) {
+            return 15 + (tas / 10);
+        }
+        if (tas > 350) {
+            return 19 + Math.max(0, ((450 - tas) * 6 / 100));
+        }
+        return 25;
+    }
+    // roll limit 1
+    if (tas < 150) {
+        return 15 + (tas / 10);
+    }
+    if (tas > 300) {
+        return 30 + Math.max(0, ((450 - tas) * 11 / 150));
+    }
+    return 30;
+}
+
+export function courseToFixDistanceToGo(ppos: Coordinates, course: Degrees, fix: Coordinates): NauticalMiles {
+    const pposToFixBearing = Avionics.Utils.computeGreatCircleHeading(ppos, fix);
+    const pposToFixDist = Avionics.Utils.computeGreatCircleDistance(ppos, fix);
+
+    const pposToFixAngle = Avionics.Utils.diffAngle(course, pposToFixBearing);
+
+    return Math.max(0, pposToFixDist * Math.cos(pposToFixAngle * Math.PI / 180));
+}
+
+export function courseToFixGuidance(ppos: Coordinates, trueTrack: Degrees, course: Degrees, fix: Coordinates): LateralPathGuidance {
+    const pposToFixBearing = Avionics.Utils.computeGreatCircleHeading(ppos, fix);
+    const pposToFixDist = Avionics.Utils.computeGreatCircleDistance(ppos, fix);
+
+    const pposToFixAngle = Avionics.Utils.diffAngle(course, pposToFixBearing);
+
+    const crossTrackError = pposToFixDist * Math.sin(pposToFixAngle * Math.PI / 180);
+
+    const trackAngleError = Avionics.Utils.diffAngle(trueTrack, course);
+
+    return {
+        law: ControlLaw.LATERAL_PATH,
+        trackAngleError,
+        crossTrackError,
+        phiCommand: 0,
+    };
 }

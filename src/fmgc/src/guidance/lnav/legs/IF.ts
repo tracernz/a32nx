@@ -15,13 +15,14 @@ export class IFLeg extends Leg {
 
         this.segment = segment;
         this.indexInFullPath = indexInFullPath;
-        this.terminator = this.fix.infos.coordinates;
     }
 
-    private readonly terminator: Coordinates | undefined;
+    getPathStartPoint(): Coordinates | undefined {
+        return this.fix.infos.coordinates;
+    }
 
-    getTerminator(): Coordinates | undefined {
-        return this.terminator;
+    getPathEndPoint(): Coordinates | undefined {
+        return this.fix.infos.coordinates;
     }
 
     recomputeWithParameters(_isActive: boolean, _tas: Knots, _gs: Knots, _ppos: Coordinates, _previousGuidable: Guidable, _nextGuidable: Guidable) {
@@ -57,10 +58,6 @@ export class IFLeg extends Leg {
     }
 
     getPseudoWaypointLocation(_distanceBeforeTerminator: NauticalMiles): Coordinates | undefined {
-        return undefined;
-    }
-
-    get initialLocation(): LatLongData | undefined {
         return undefined;
     }
 

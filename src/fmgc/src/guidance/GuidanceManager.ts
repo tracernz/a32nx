@@ -1,3 +1,4 @@
+import { HALeg, HFLeg, HMLeg } from '@fmgc/guidance/lnav/legs/HX';
 import { RFLeg } from '@fmgc/guidance/lnav/legs/RF';
 import { TFLeg } from '@fmgc/guidance/lnav/legs/TF';
 import { VMLeg } from '@fmgc/guidance/lnav/legs/VM';
@@ -12,6 +13,7 @@ import { IFLeg } from '@fmgc/guidance/lnav/legs/IF';
 import { DFLeg } from '@fmgc/guidance/lnav/legs/DF';
 import { Geometry } from './Geometry';
 import { FlightPlanManager } from '../flightplanning/FlightPlanManager';
+import { Type5Transition } from './lnav/transitions/Type5';
 
 /**
  * This class will guide the aircraft by predicting a flight path and
@@ -44,6 +46,18 @@ export class GuidanceManager {
 
     private static tfLeg(from: WayPoint, to: WayPoint, segment: SegmentType, indexInFullPath: number) {
         return new TFLeg(from, to, segment, indexInFullPath);
+    }
+
+    private static haLeg(to: WayPoint, segment: SegmentType, indexInFullPath: number) {
+        return new HALeg(to, segment, indexInFullPath);
+    }
+
+    private static hfLeg(to: WayPoint, segment: SegmentType, indexInFullPath: number) {
+        return new HFLeg(to, segment, indexInFullPath);
+    }
+
+    private static hmLeg(to: WayPoint, segment: SegmentType, indexInFullPath: number) {
+        return new HMLeg(to, segment, indexInFullPath);
     }
 
     private static caLeg(course: DegreesTrue, altitude: Feet, segment: SegmentType, indexInFullPath: number) {
@@ -87,6 +101,18 @@ export class GuidanceManager {
 
                 return GuidanceManager.caLeg(course, altitude, segment, toIndex);
             }
+        }
+
+        if (to.additionalData?.legType === LegType.HA) {
+            return GuidanceManager.haLeg(to, segment, activeIndex - 1);
+        }
+
+        if (to.additionalData?.legType === LegType.HF) {
+            return GuidanceManager.hfLeg(to, segment, activeIndex - 1);
+        }
+
+        if (to.additionalData?.legType === LegType.HM) {
+            return GuidanceManager.hmLeg(to, segment, activeIndex - 1);
         }
 
         if (to.isVectors) {

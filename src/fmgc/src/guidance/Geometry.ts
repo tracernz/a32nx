@@ -160,7 +160,7 @@ export class Geometry {
 
         // first, check if we're abeam with one of the transitions (start or end)
         const fromTransition = this.transitions.get(0);
-        if (fromTransition && fromTransition.isAbeam(ppos)) {
+        if (fromTransition && !fromTransition.isNull && fromTransition.isAbeam(ppos)) {
             if (fromTransition instanceof Type1Transition && !fromTransition.isFrozen) {
                 fromTransition.isFrozen = true;
             }
@@ -169,7 +169,7 @@ export class Geometry {
                 radGudiable = fromTransition;
             }
 
-            const rad = this.getRollAnticipationDistance(gs, fromTransition, activeLeg);
+            const rad = this.getGuidableRollAnticipationDistance(gs, fromTransition, activeLeg);
             const dtg = fromTransition.getDistanceToGo(ppos);
             SimVar.SetSimVarValue('L:A32NX_FG_RAD', 'number', rad);
             SimVar.SetSimVarValue('L:A32NX_FG_DTG', 'number', dtg);
@@ -194,13 +194,13 @@ export class Geometry {
         }
 
         const toTransition = this.transitions.get(1);
-        if (toTransition) {
+        if (toTransition && !toTransition.isNull) {
             if (toTransition.isAbeam(ppos)) {
                 if (toTransition instanceof Type1Transition && !toTransition.isFrozen) {
                     toTransition.isFrozen = true;
                 }
 
-                const rad = this.getRollAnticipationDistance(gs, toTransition, nextLeg);
+                const rad = this.getGuidableRollAnticipationDistance(gs, toTransition, nextLeg);
                 const dtg = toTransition.getDistanceToGo(ppos);
                 SimVar.SetSimVarValue('L:A32NX_FG_RAD', 'number', rad);
                 SimVar.SetSimVarValue('L:A32NX_FG_DTG', 'number', dtg);
@@ -227,8 +227,8 @@ export class Geometry {
             if (activeLeg) {
                 const [itp] = toTransition.getTurningPoints();
                 // TODO this should be tidied up somewhere else
-                const unTravelled = Avionics.Utils.computeGreatCircleDistance(itp, activeLeg.getTerminator());
-                const rad = this.getRollAnticipationDistance(gs, activeLeg, toTransition);
+                const unTravelled = Avionics.Utils.computeGreatCircleDistance(itp, activeLeg.getPathEndPoint());
+                const rad = this.getGuidableRollAnticipationDistance(gs, activeLeg, toTransition);
                 const dtg = activeLeg.getDistanceToGo(ppos) - unTravelled;
                 SimVar.SetSimVarValue('L:A32NX_FG_RAD', 'number', rad);
                 SimVar.SetSimVarValue('L:A32NX_FG_DTG', 'number', dtg);
@@ -251,7 +251,7 @@ export class Geometry {
             const dtg = activeLeg.getDistanceToGo(ppos);
             SimVar.SetSimVarValue('L:A32NX_FG_DTG', 'number', dtg);
             if (nextLeg) {
-                const rad = this.getRollAnticipationDistance(gs, activeLeg, nextLeg);
+                const rad = this.getGuidableRollAnticipationDistance(gs, activeLeg, nextLeg);
                 SimVar.SetSimVarValue('L:A32NX_FG_RAD', 'number', rad);
                 if (dtg <= rad) {
                     if (DEBUG) {
@@ -292,7 +292,7 @@ export class Geometry {
         return paramsToReturn;
     }
 
-    getRollAnticipationDistance(gs, from: Leg | Transition, to: Leg | Transition) {
+    getGuidableRollAnticipationDistance(gs, from: Leg | Transition, to: Leg | Transition) {
         if (!from.isCircularArc && !to.isCircularArc) {
             return 0;
         }
@@ -304,15 +304,21 @@ export class Geometry {
         const phiNominalFrom = from.getNominalRollAngle(groundSpeedMeterPerSecond);
         const phiNominalTo = to.getNominalRollAngle(groundSpeedMeterPerSecond);
 
+        // TODO consider case where RAD > transition distance
+
+        return Geometry.getRollAnticipationDistance(gs, phiNominalFrom, phiNominalTo);
+    }
+
+    static getRollAnticipationDistance(gs: Knots, bankA: Degrees, bankB: Degrees): NauticalMiles {
         // calculate delta phi
-        const deltaPhi = Math.abs(phiNominalTo - phiNominalFrom);
+        const deltaPhi = Math.abs(bankA - bankB);
+
+        const gsMs = gs * 463 / 900;
 
         // calculate RAD
         const maxRollRate = 5; // deg / s, TODO picked off the wind
-        const k2 = 0.0038;
-        const rad = gs / 3600 * (Math.sqrt(1 + 2 * k2 * 9.81 * deltaPhi / maxRollRate) - 1) / (k2 * 9.81);
-
-        // TODO consider case where RAD > transition distance
+        const k2 = 0.0076;
+        const rad = gsMs / 3600 * (Math.sqrt(1 + 2 * k2 * 9.81 * deltaPhi / maxRollRate) - 1) / (k2 * 9.81);
 
         return rad;
     }
@@ -379,7 +385,7 @@ export class Geometry {
         ppos: LatLongData,
         leg: Leg,
         inbound?: Transition,
-        outbound?: Type1Transition,
+        outbound?: Transition,
     ) {
         const [, legPartLength, outboundTransLength] = Geometry.completeLegPathLengths(
             leg,
@@ -408,7 +414,7 @@ export class Geometry {
     static completeLegPathLengths(
         leg: Leg,
         inbound?: Transition,
-        outbound?: Type1Transition,
+        outbound?: Transition,
     ): [number, number, number] {
         let inboundLength = 0;
         let legPartLength = 0;

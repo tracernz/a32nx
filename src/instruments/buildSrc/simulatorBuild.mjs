@@ -8,7 +8,6 @@ import { getInputs } from './igniter/tasks.mjs';
 process.chdir(Directories.src);
 
 export default getInputs()
-    .filter(({ name }) => name === 'ND')
     .map(({ path, name, isInstrument }) => {
         const config = JSON.parse(fs.readFileSync(join(Directories.instruments, 'src', path, 'config.json')));
 
@@ -29,6 +28,8 @@ export default getInputs()
                     imports: [
                         '/JS/dataStorage.js',
                         '/Pages/VCockpit/Instruments/FlightElements/A32NX_Waypoint.js',
+                        '/Pages/A32NX_Core/math.js',
+                        '/JS/A32NX_Util.js',
                         ...additionalImports,
                     ],
                     config,

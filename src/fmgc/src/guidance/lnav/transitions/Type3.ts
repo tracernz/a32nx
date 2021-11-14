@@ -1,18 +1,19 @@
 import { MathUtils } from '@shared/MathUtils';
+import { CALeg } from '@fmgc/guidance/lnav/legs/CA';
+import { DFLeg } from '@fmgc/guidance/lnav/legs/DF';
+import { HALeg, HFLeg, HMLeg } from '@fmgc/guidance/lnav/legs/HX';
+import { RFLeg } from '@fmgc/guidance/lnav/legs/RF';
 import { TFLeg } from '@fmgc/guidance/lnav/legs/TF';
 import { VMLeg } from '@fmgc/guidance/lnav/legs/VM';
-import { RFLeg } from '@fmgc/guidance/lnav/legs/RF';
 import { Transition } from '@fmgc/guidance/lnav/Transition';
 import { ControlLaw, GuidanceParameters } from '@fmgc/guidance/ControlLaws';
 import { Coordinates } from '@fmgc/flightplanning/data/geo';
-import { CALeg } from '@fmgc/guidance/lnav/legs/CA';
 import { Constants } from '@shared/Constants';
 import { GuidanceConstants } from '@fmgc/guidance/GuidanceConstants';
 import { Geo } from '@fmgc/utils/Geo';
 import { arcDistanceToGo } from '../CommonGeometry';
-import { DFLeg } from '../legs/DF';
 
-export type Type3PreviousLeg = /* AFLeg | */ CALeg | /* CDLeg | CFLeg | CRLeg | */ DFLeg | /* | FALeg | FMLeg | HALeg | HFLeg | HMLeg | */ RFLeg | TFLeg | /* VALeg | VDLeg | */ VMLeg;
+export type Type3PreviousLeg = /* AFLeg | */ CALeg | /* CDLeg | CFLeg | CRLeg | */ DFLeg | /* | FALeg | FMLeg |*/ HALeg | HFLeg | HMLeg |  RFLeg | TFLeg | /* VALeg | VDLeg | */ VMLeg;
 export type Type3NextLeg = CALeg | /* CDLeg | CILeg | CRLeg | VALeg | VDLeg | VILeg | */ VMLeg;
 
 const mod = (x: number, n: number) => x - Math.floor(x / n) * n;
@@ -37,7 +38,11 @@ export class Type3Transition extends Transition {
 
     private terminator: Coordinates | undefined;
 
-    getTerminator(): Coordinates | undefined {
+    getPathStartPoint(): Coordinates | undefined {
+        return this.previousLeg.getPathEndPoint();
+    }
+
+    getPathEndPoint(): Coordinates | undefined {
         return this.terminator;
     }
 
@@ -69,7 +74,7 @@ export class Type3Transition extends Transition {
     public clockwise: boolean;
 
     recomputeWithParameters(isActive: boolean, tas: Knots, gs: Knots, ppos: Coordinates) {
-        const termFix = this.previousLeg.getTerminator();
+        const termFix = this.previousLeg.getPathEndPoint();
 
         let courseChange;
         let initialTurningPoint;
@@ -100,8 +105,8 @@ export class Type3Transition extends Transition {
         // FIXME PATH MODEL!!!!!!!!
         if (courseChange === 0) {
             this.isArc = false;
-            this.startPoint = this.previousLeg.getTerminator();
-            this.endPoint = this.previousLeg.getTerminator();
+            this.startPoint = this.previousLeg.getPathEndPoint();
+            this.endPoint = this.previousLeg.getPathEndPoint();
 
             this.terminator = this.endPoint;
 

@@ -1,5 +1,7 @@
 import { MathUtils } from '@shared/MathUtils';
 import { CALeg } from '@fmgc/guidance/lnav/legs/CA';
+import { DFLeg } from '@fmgc/guidance/lnav/legs/DF';
+import { HALeg, HFLeg, HMLeg } from '@fmgc/guidance/lnav/legs/HX';
 import { TFLeg } from '@fmgc/guidance/lnav/legs/TF';
 import { VMLeg } from '@fmgc/guidance/lnav/legs/VM';
 import { Transition } from '@fmgc/guidance/lnav/Transition';
@@ -8,10 +10,9 @@ import { Coordinates } from '@fmgc/flightplanning/data/geo';
 import { Geo } from '@fmgc/utils/Geo';
 import { GuidanceConstants } from '@fmgc/guidance/GuidanceConstants';
 import { Constants } from '@shared/Constants';
-import { DFLeg } from '../legs/DF';
 import { arcDistanceToGo } from '../CommonGeometry';
 
-export type Type4PreviousLeg = CALeg | /* CDLeg | CFLeg | CILeg | CRLeg | */ DFLeg | /* FALeg | FMLeg | HALeg | HFLeg | HMLeg */ TFLeg | /* VALeg | VILeg | VDLeg | */ VMLeg; /* | VRLeg */
+export type Type4PreviousLeg = CALeg | /* CDLeg | CFLeg | CILeg | CRLeg | */ DFLeg | /* FALeg | FMLeg |*/ HALeg | HFLeg | HMLeg | TFLeg | /* VALeg | VILeg | VDLeg | */ VMLeg; /* | VRLeg */
 export type Type4NextLeg = DFLeg /* | FALeg | FMLeg */
 
 const mod = (x: number, n: number) => x - Math.floor(x / n) * n;
@@ -37,7 +38,11 @@ export class Type4Transition extends Transition {
 
     private terminator: Coordinates | undefined;
 
-    getTerminator(): Coordinates | undefined {
+    getPathStartPoint(): Coordinates | undefined {
+        return this.previousLeg.getPathEndPoint();
+    }
+
+    getPathEndPoint(): Coordinates | undefined {
         return this.terminator;
     }
 
@@ -83,7 +88,7 @@ export class Type4Transition extends Transition {
     }
 
     recomputeWithParameters(isActive: boolean, tas: Knots, gs: MetresPerSecond, _ppos: Coordinates) {
-        const termFix = this.previousLeg.getTerminator();
+        const termFix = this.previousLeg.getPathEndPoint();
 
         // TODO revert to type 1 for CI/VI legs
 
@@ -92,7 +97,7 @@ export class Type4Transition extends Transition {
 
         this.radius = gs ** 2 / (Constants.G * tan(GuidanceConstants.maxRollAngle)) / 6080.2;
 
-        let trackChange = MathUtils.diffAngle(this.previousLeg.outboundCourse, Geo.getGreatCircleBearing(this.previousLeg.getTerminator(), nextFix));
+        let trackChange = MathUtils.diffAngle(this.previousLeg.outboundCourse, Geo.getGreatCircleBearing(this.previousLeg.getPathEndPoint(), nextFix));
         if (Math.abs(trackChange) < 3) {
             this.revertedTransition = null;
         }
@@ -136,7 +141,7 @@ export class Type4Transition extends Transition {
 
         const ftp = Geo.computeDestinationPoint(turnCentre, this.radius, this.previousLeg.outboundCourse + trackChange - 90 * turnDirection);
 
-        this.lineStartPoint = this.previousLeg.getTerminator();
+        this.lineStartPoint = this.previousLeg.getPathEndPoint();
         this.lineEndPoint = itp;
         this.hasArc = true;
         this.arcStartPoint = itp;

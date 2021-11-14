@@ -6,8 +6,11 @@ import { GuidanceParameters } from '@fmgc/guidance/ControlLaws';
 import { Geo } from '@fmgc/utils/Geo';
 import { Type1Transition } from '@fmgc/guidance/lnav/transitions';
 import { XFLeg } from '@fmgc/guidance/lnav/legs/XF';
+import { PathVector, PathVectorType } from '../PathVector';
 
 export class DFLeg extends XFLeg {
+    private computedPath: PathVector[] = [];
+
     constructor(
         public fix: WayPoint,
         segment: SegmentType,
@@ -21,12 +24,20 @@ export class DFLeg extends XFLeg {
 
     start: Coordinates;
 
-    getTerminator(): Coordinates | undefined {
+    getPathStartPoint(): Coordinates | undefined {
+        return this.inboundGuidable?.getPathEndPoint();;
+    }
+
+    getPathEndPoint(): Coordinates | undefined {
         if (this.outboundGuidable instanceof Type1Transition) {
             return this.outboundGuidable.getTurningPoints()[0];
         }
 
         return this.fix.infos.coordinates;
+    }
+
+    get predictedPath(): PathVector[] {
+        return this.computedPath;
     }
 
     private inboundGuidable: Guidable | undefined;
@@ -38,6 +49,17 @@ export class DFLeg extends XFLeg {
         this.inboundGuidable = previousGuidable;
         this.outboundGuidable = nextGuidable;
 
+        const start = this.inboundGuidable.getPathEndPoint();
+        if (start) {
+            this.computedPath = [{
+                type: PathVectorType.Line,
+                startPoint: start,
+                endPoint: this.fix.infos.coordinates,
+            }]
+        } else {
+            this.computedPath.length = 0;
+        }
+
         // FIXME terminator should be start of next guidable
 
         this.isComputed = true;
@@ -48,11 +70,11 @@ export class DFLeg extends XFLeg {
     }
 
     get inboundCourse(): Degrees {
-        return Geo.getGreatCircleBearing(this.inboundGuidable.getTerminator(), this.fix.infos.coordinates);
+        return Geo.getGreatCircleBearing(this.inboundGuidable.getPathEndPoint(), this.fix.infos.coordinates);
     }
 
     get outboundCourse(): Degrees {
-        return Geo.getGreatCircleBearing(this.inboundGuidable.getTerminator(), this.fix.infos.coordinates);
+        return Geo.getGreatCircleBearing(this.inboundGuidable.getPathEndPoint(), this.fix.infos.coordinates);
     }
 
     get distance(): NauticalMiles {
@@ -72,10 +94,6 @@ export class DFLeg extends XFLeg {
     }
 
     getPseudoWaypointLocation(_distanceBeforeTerminator: NauticalMiles): Coordinates | undefined {
-        return undefined;
-    }
-
-    get initialLocation(): LatLongData | undefined {
         return undefined;
     }
 

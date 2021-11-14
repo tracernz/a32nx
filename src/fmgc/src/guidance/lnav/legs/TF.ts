@@ -15,6 +15,7 @@ import { Guidable } from '@fmgc/guidance/Guidable';
 import { Constants } from '@shared/Constants';
 import { XFLeg } from '@fmgc/guidance/lnav/legs/XF';
 import { Geo } from '@fmgc/utils/Geo';
+import { PathVector, PathVectorType } from '../PathVector';
 
 export class TFLeg extends XFLeg {
     public from: WayPoint;
@@ -25,6 +26,10 @@ export class TFLeg extends XFLeg {
 
     private mDistance: NauticalMiles;
 
+    private course: Degrees;
+
+    private computedPath: PathVector[] = [];
+
     constructor(from: WayPoint, to: WayPoint, segment: SegmentType, indexInFullPath: number) {
         super();
         this.from = from;
@@ -34,6 +39,16 @@ export class TFLeg extends XFLeg {
         this.segment = segment;
         this.indexInFullPath = indexInFullPath;
         this.constraintType = to.constraintType;
+        this.course = Avionics.Utils.computeGreatCircleHeading(
+            this.from.infos.coordinates,
+            this.to.infos.coordinates,
+        );
+
+        this.computedPath = [{
+            type: PathVectorType.Line,
+            startPoint: this.from.infos.coordinates,
+            endPoint: this.to.infos.coordinates,
+        }];
     }
 
     private previousGudiable: Guidable;
@@ -48,7 +63,15 @@ export class TFLeg extends XFLeg {
         return Geo.getGreatCircleBearing(this.from.infos.coordinates, this.to.infos.coordinates);
     }
 
-    getTerminator(): Coordinates | undefined {
+    get predictedPath(): PathVector[] {
+        return this.computedPath;
+    }
+
+    getPathStartPoint(): Coordinates | undefined {
+        return this.previousGudiable?.getPathEndPoint();
+    }
+
+    getPathEndPoint(): Coordinates | undefined {
         if (this.nextGuidable instanceof Type1Transition) {
             return this.nextGuidable.getTurningPoints()[0];
         }
@@ -59,6 +82,15 @@ export class TFLeg extends XFLeg {
     recomputeWithParameters(_isActive: boolean, _tas: Knots, _gs: Knots, _ppos: Coordinates, previousGuidable: Guidable, nextGuidable: Guidable) {
         this.previousGudiable = previousGuidable;
         this.nextGuidable = nextGuidable;
+
+        const startPoint = this.previousGudiable?.isComputed ? this.previousGudiable.getPathEndPoint() : undefined;
+        const endPoint = this.nextGuidable?.isComputed ? this.nextGuidable.getPathStartPoint() : undefined;
+
+        this.computedPath = [{
+            type: PathVectorType.Line,
+            startPoint: startPoint ? startPoint : this.from.infos.coordinates,
+            endPoint: endPoint ? endPoint : this.to.infos.coordinates,
+        }];
 
         this.isComputed = true;
     }
@@ -89,10 +121,6 @@ export class TFLeg extends XFLeg {
         return getAltitudeConstraintFromWaypoint(this.from);
     }
 
-    get initialLocation(): LatLongData {
-        return this.from.infos.coordinates;
-    }
-
     getPseudoWaypointLocation(distanceBeforeTerminator: NauticalMiles): LatLongData {
         const inverseBearing = Avionics.Utils.computeGreatCircleHeading(
             this.to.infos.coordinates,
@@ -102,8 +130,8 @@ export class TFLeg extends XFLeg {
         return Avionics.Utils.bearingDistanceToCoordinates(
             inverseBearing,
             distanceBeforeTerminator,
-            this.getTerminator().lat,
-            this.getTerminator().long,
+            this.getPathEndPoint().lat,
+            this.getPathEndPoint().long,
         );
     }
 

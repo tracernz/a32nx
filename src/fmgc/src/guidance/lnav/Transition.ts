@@ -14,8 +14,6 @@ export abstract class Transition extends Guidable {
 
     abstract getNominalRollAngle(gs): Degrees;
 
-    abstract get isCircularArc(): boolean;
-
     abstract getDistanceToGo(ppos: LatLongData);
 
     abstract getTurningPoints(): [LatLongData, LatLongData];
@@ -23,4 +21,8 @@ export abstract class Transition extends Guidable {
     abstract get distance(): NauticalMiles;
 
     abstract get repr(): string;
+
+    get isNull(): boolean {
+        return false;
+    }
 }

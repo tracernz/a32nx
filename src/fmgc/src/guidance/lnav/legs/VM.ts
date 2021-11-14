@@ -21,7 +21,12 @@ export class VMLeg extends Leg {
         this.indexInFullPath = indexInFullPath;
     }
 
-    getTerminator(): Coordinates | undefined {
+    getPathStartPoint(): Coordinates | undefined {
+        // TODO
+        return undefined;
+    }
+
+    getPathEndPoint(): Coordinates | undefined {
         return Avionics.Utils.bearingDistanceToCoordinates(
             this.heading,
             1,
@@ -55,16 +60,12 @@ export class VMLeg extends Leg {
         return undefined;
     }
 
-    get initialLocation(): undefined {
-        return undefined;
-    }
-
     // Can't get pseudo-waypoint location without a finite terminator
     getPseudoWaypointLocation(_distanceBeforeTerminator: NauticalMiles): undefined {
         return undefined;
     }
 
-    getGuidanceParameters(_ppos: LatLongData, _trueTrack: Track): GuidanceParameters | null {
+    getGuidanceParameters(_ppos: LatLongData, _trueTrack: Track): GuidanceParameters {
         return {
             law: ControlLaw.HEADING,
             heading: this.heading,

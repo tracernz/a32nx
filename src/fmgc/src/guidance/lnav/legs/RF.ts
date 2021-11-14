@@ -1,4 +1,4 @@
-import { ControlLaw, GuidanceParameters } from '@fmgc/guidance/ControlLaws';
+import { GuidanceParameters } from '@fmgc/guidance/ControlLaws';
 import {
     AltitudeConstraint,
     SpeedConstraint,
@@ -9,6 +9,7 @@ import { SegmentType } from '@fmgc/wtsdk';
 import { Coordinates } from '@fmgc/flightplanning/data/geo';
 import { Leg } from '@fmgc/guidance/lnav/legs/Leg';
 import { arcDistanceToGo, arcGuidance, pointOnArc } from '@fmgc/guidance/lnav/CommonGeometry';
+import { PathVector, PathVectorType } from '../PathVector';
 
 export class RFLeg extends Leg {
     // termination fix of the previous leg
@@ -27,6 +28,8 @@ export class RFLeg extends Leg {
     public clockwise: boolean;
 
     private mDistance: NauticalMiles;
+
+    private computedPath: PathVector[] = [];
 
     constructor(from: WayPoint, to: WayPoint, center: LatLongData, segment: SegmentType, indexInFullPath: number) {
         super();
@@ -53,20 +56,34 @@ export class RFLeg extends Leg {
         case 3: // either
         default:
             const angle = Avionics.Utils.diffAngle(bearingTo, bearingFrom);
-            this.clockwise = this.angle > 0;
+            this.clockwise = angle > 0;
             this.angle = Math.abs(angle);
             break;
         }
 
         this.mDistance = 2 * Math.PI * this.radius / 360 * this.angle;
 
-        this.terminator = this.to.infos.coordinates;
+        this.computedPath = [
+            {
+                type: PathVectorType.Arc,
+                startPoint: this.from.infos.coordinates,
+                centrePoint: this.center,
+                endPoint: this.to.infos.coordinates,
+                sweepAngle: this.clockwise ? this.angle : -this.angle,
+            }
+        ];
     }
 
-    terminator: Coordinates | undefined;
+    getPathStartPoint(): Coordinates | undefined {
+        return this.to.infos.coordinates;
+    }
 
-    getTerminator(): Coordinates | undefined {
-        return this.terminator;
+    getPathEndPoint(): Coordinates | undefined {
+        return this.from.infos.coordinates;
+    }
+
+    get predictedPath(): PathVector[] {
+        return this.computedPath;
     }
 
     get isCircularArc(): boolean {
@@ -93,12 +110,8 @@ export class RFLeg extends Leg {
         return getAltitudeConstraintFromWaypoint(this.to);
     }
 
-    get initialLocation(): LatLongData {
-        return this.from.infos.coordinates;
-    }
-
     getPseudoWaypointLocation(distanceBeforeTerminator: NauticalMiles): LatLongData {
-        return pointOnArc(distanceBeforeTerminator, this.to.infos.coordinates, this.center, this.clockwise, this.radius, this.angle, this.distance);
+        return pointOnArc(distanceBeforeTerminator, this.to.infos.coordinates, this.center, this.clockwise ? this.angle : -this.angle);
     }
 
     // basically straight from type 1 transition... willl need refinement

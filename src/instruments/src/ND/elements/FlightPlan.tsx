@@ -22,6 +22,8 @@ import { Coordinates } from '@fmgc/flightplanning/data/geo';
 import { IFLeg } from '@fmgc/guidance/lnav/legs/IF';
 import { Type4Transition } from '@fmgc/guidance/lnav/transitions/Type4';
 import { Guidable } from '@fmgc/guidance/Guidable';
+import { PathVector, PathVectorType } from '@fmgc/guidance/lnav/PathVector';
+import { HALeg, HFLeg, HMLeg, HxLegGuidanceState } from '@fmgc/guidance/lnav/legs/HX';
 import { MapParameters } from '../utils/MapParameters';
 
 export enum FlightPlanType {
@@ -473,6 +475,8 @@ const DebugLeg: FC<DebugLegProps<Leg>> = ({ leg, mapParams }) => {
         return <DebugTFLeg leg={leg} mapParams={mapParams} />;
     } if (leg instanceof VMLeg) {
         return <DebugVMLeg leg={leg} mapParams={mapParams} />;
+    } if (leg instanceof HALeg || leg instanceof HFLeg || leg instanceof HMLeg) {
+        return <DebugHXLeg leg={leg} mapParams={mapParams} />;
     }
 
     return null;
@@ -505,7 +509,7 @@ const DebugTFLeg: FC<DebugLegProps<TFLeg>> = ({ leg, mapParams }) => {
             <text fill="#ff4444" x={infoX} y={infoY + 40} fontSize={16}>
                 Tl:
                 {' '}
-                {MathUtils.fastToFixed(leg.bearing, 1)}
+                {MathUtils.fastToFixed(leg.inboundCourse, 1)}
             </text>
             <text fill="#ff4444" x={infoX + 100} y={infoY + 40} fontSize={16}>
                 tA:
@@ -542,6 +546,26 @@ const DebugVMLeg: FC<DebugLegProps<VMLeg>> = ({ leg, mapParams }) => {
     );
 };
 
+const DebugHXLeg: FC<DebugLegProps<HALeg | HFLeg | HMLeg>> = ({ leg, mapParams }) => {
+    const legType = leg.constructor.name.substr(0, 2);
+
+    const [fromX, fromY] = mapParams.coordinatesToXYy(leg.to.infos.coordinates);
+
+    const [infoX, infoY] = [fromX, fromY - 150];
+
+    return (
+        <>
+            <text fill="#ff4444" x={infoX} y={infoY} fontSize={16}>
+                {HxLegGuidanceState[leg.state]}
+                {' - r='}
+                {leg.radius.toFixed(1)}
+                {' NM'}
+            </text>
+            <text fill="#ff4444" x={infoX} y={infoY + 20} fontSize={16}>{legType}</text>
+        </>
+    );
+};
+//
 export type DebugTransitionProps = {
     transition: Transition,
     mapParams: MapParameters,
@@ -597,15 +621,23 @@ function makePathFromGeometry(geometry: Geometry, mapParams: MapParameters): str
         }
 
         if (inbound instanceof Transition) {
-            path.push(...drawTransition(mapParams, inbound));
+            const pathVectors = inbound.predictedPath;
+            if (pathVectors instanceof Array) {
+                path.push(...drawPathVectors(mapParams, pathVectors));
+            } else {
+                // TODO replace with path vectors on all transition types
+                //path.push(...drawTransition(mapParams, inbound));
+            }
         }
 
+        const legPathVectors = leg.predictedPath;
+        // TODO remove special case... maybe need special path vector endpoint for infinite legs
         if (leg instanceof VMLeg) {
             if (inbound) {
-                const fromLla = inbound.getTerminator()!;
+                const fromLla = inbound.getPathEndPoint()!;
 
                 const farAwayPoint = Avionics.Utils.bearingDistanceToCoordinates(
-                    leg.bearing,
+                    leg.inboundCourse,
                     mapParams.nmRadius + 2,
                     fromLla.lat,
                     fromLla.long,
@@ -617,14 +649,61 @@ function makePathFromGeometry(geometry: Geometry, mapParams: MapParameters): str
                     farAwayPoint,
                 ));
             }
+        } else if (legPathVectors instanceof Array) {
+            path.push(...drawPathVectors(mapParams, legPathVectors));
         } else {
-            path.push(...drawLeg(mapParams, leg, inbound, outbound));
+            //path.push(...drawLeg(mapParams, leg, inbound, outbound));
         }
     }
 
     return path.join(' ');
 }
 
+/**
+ *
+ * @param mapParams ND map parameters for scaling etc.
+ * @param pathVectors predicted path from the guidables to draw
+ * @returns
+ */
+function drawPathVectors(mapParams: MapParameters, pathVectors: PathVector[]): string[] {
+    const path: string[] = [];
+
+    for (const vector of pathVectors) {
+        const [inX, inY] = mapParams.coordinatesToXYy(vector.startPoint);
+        let x = MathUtils.fastToFixed(inX, 1);
+        let y = MathUtils.fastToFixed(inY, 1);
+        path.push(`M ${x} ${y}`);
+
+        switch (vector.type) {
+        case PathVectorType.Line: {
+            const [outX, outY] = mapParams.coordinatesToXYy(vector.endPoint!);
+            x = MathUtils.fastToFixed(outX, 1);
+            y = MathUtils.fastToFixed(outY, 1);
+            path.push(`L ${x} ${y}`);
+            break;
+        }
+        case PathVectorType.Arc: {
+            const r = Avionics.Utils.computeGreatCircleDistance(vector.centrePoint!, vector.startPoint) * mapParams.nmToPx;
+            const [outX, outY] = mapParams.coordinatesToXYy(vector.endPoint!);
+            x = MathUtils.fastToFixed(outX, 1);
+            y = MathUtils.fastToFixed(outY, 1);
+            path.push(`A ${r} ${r} 0 ${Math.abs(vector.sweepAngle!) >= 180 ? 1 : 0} ${vector.sweepAngle! > 0 ? 1 : 0} ${x} ${y}`);
+            break;
+        }
+        case PathVectorType.DebugPoint: {
+            path.push('m-10,0 l20,0 m-10,-10 l0,20');
+            break;
+        }
+        default:
+        }
+    }
+
+    return path;
+}
+
+/**
+ * @deprecated Use path vectors
+ */
 function drawLeg(mapParams: MapParameters, leg: Leg, inbound: Guidable, outbound?: Guidable) {
     const path: string[] = [];
 
@@ -644,14 +723,17 @@ function drawLeg(mapParams: MapParameters, leg: Leg, inbound: Guidable, outbound
 
         path.push(...drawLine(
             mapParams,
-            inbound.getTerminator()!,
-            outbound instanceof Type1Transition ? outbound.getTurningPoints()[0] : leg.getTerminator()!,
+            inbound.getPathEndPoint()!,
+            outbound instanceof Type1Transition ? outbound.getTurningPoints()[0] : leg.getPathEndPoint()!,
         ));
     }
 
     return path;
 }
 
+/**
+ * @deprecated Use path vectors
+ */
 function drawTransition(mapParams: MapParameters, transition: Transition): string[] {
     const path: string[] = [];
 
@@ -697,6 +779,9 @@ function drawTransition(mapParams: MapParameters, transition: Transition): strin
     return path;
 }
 
+/**
+ * @deprecated Use path vectors
+ */
 function drawArc(mapParams: MapParameters, itp: Coordinates, ftp: Coordinates, radius: NauticalMiles, sweepAngle: Degrees, clockwise: boolean): string[] {
     const path: string[] = [];
 
@@ -723,6 +808,9 @@ function drawArc(mapParams: MapParameters, itp: Coordinates, ftp: Coordinates, r
     return path;
 }
 
+/**
+ * @deprecated Use path vectors
+ */
 function drawLine(mapParams: MapParameters, start: Coordinates, end: Coordinates): string[] {
     const path: string[] = [];
 
@@ -748,6 +836,9 @@ function drawLine(mapParams: MapParameters, start: Coordinates, end: Coordinates
     return path;
 }
 
+/**
+ * @deprecated Use path vectors
+ */
 function drawDebugPoint(mapParams: MapParameters, point: Coordinates): string[] {
     const path: string[] = [];
 

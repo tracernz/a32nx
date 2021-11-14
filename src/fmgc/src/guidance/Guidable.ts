@@ -1,11 +1,14 @@
 import { Coordinates } from '@fmgc/flightplanning/data/geo';
 import { GuidanceParameters } from '@fmgc/guidance/ControlLaws';
+import { PathVector } from '@fmgc/guidance/lnav/PathVector';
 
 export abstract class Guidable {
     protected constructor() {
     }
 
-    abstract getTerminator(): Coordinates | undefined;
+    abstract getPathStartPoint(): Coordinates | undefined;
+
+    abstract getPathEndPoint(): Coordinates | undefined;
 
     isComputed = false;
 
@@ -39,6 +42,16 @@ export abstract class Guidable {
      * @param distanceBeforeTerminator
      */
     abstract getPseudoWaypointLocation(distanceBeforeTerminator: NauticalMiles): Coordinates | undefined;
+
+    /**
+     * Path vectors for drawing on the ND
+     */
+    abstract get predictedPath(): PathVector[] | undefined;
+
+    /**
+     * For roll anticipation
+     */
+    abstract get isCircularArc(): boolean;
 
     abstract get repr(): string;
 }

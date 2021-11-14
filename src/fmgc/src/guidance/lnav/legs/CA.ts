@@ -4,9 +4,12 @@ import { Guidable } from '@fmgc/guidance/Guidable';
 import { SegmentType } from '@fmgc/flightplanning/FlightPlanSegment';
 import { Leg } from '@fmgc/guidance/lnav/legs/Leg';
 import { GuidanceParameters } from '@fmgc/guidance/ControlLaws';
+import { PathVector, PathVectorType } from '../PathVector';
 
 export class CALeg extends Leg {
     public estimatedTermination: Coordinates;
+
+    private computedPath: PathVector[] = [];
 
     constructor(
         public readonly course: Degrees,
@@ -26,8 +29,12 @@ export class CALeg extends Leg {
 
     private inboundGuidable: Guidable | undefined;
 
-    getTerminator(): Coordinates | undefined {
-        this.start = this.inboundGuidable.getTerminator();
+    getPathStartPoint(): Coordinates | undefined {
+        return this.inboundGuidable.getPathEndPoint();
+    }
+
+    getPathEndPoint(): Coordinates | undefined {
+        this.start = this.inboundGuidable.getPathEndPoint();
 
         const TEMP_DISTANCE = 2;
 
@@ -41,8 +48,18 @@ export class CALeg extends Leg {
         return this.terminator;
     }
 
+    get predictedPath(): PathVector[] {
+        return this.computedPath;
+    }
+
     recomputeWithParameters(_isActive: boolean, _tas: Knots, _gs: Knots, _ppos: Coordinates, previousGuidable: Guidable, _nextGuidable: Guidable) {
         this.inboundGuidable = previousGuidable;
+
+        this.computedPath = [{
+            type: PathVectorType.Line,
+            startPoint: this.inboundGuidable.getPathEndPoint(),
+            endPoint: this.getPathEndPoint(),
+        }];
 
         this.isComputed = true;
     }
@@ -76,10 +93,6 @@ export class CALeg extends Leg {
     }
 
     getPseudoWaypointLocation(_distanceBeforeTerminator: NauticalMiles): Coordinates | undefined {
-        return undefined;
-    }
-
-    get initialLocation(): LatLongData | undefined {
         return undefined;
     }
 
