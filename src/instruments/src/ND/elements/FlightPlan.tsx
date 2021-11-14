@@ -17,10 +17,11 @@ import { Transition } from '@fmgc/guidance/lnav/Transition';
 import { NdSymbol, NdSymbolTypeFlags } from '@shared/NavigationDisplay';
 import { useCurrentFlightPlan } from '@instruments/common/flightplan';
 import { Leg } from '@fmgc/guidance/lnav/legs/Leg';
-import { CALeg } from '@fmgc/guidance/lnav/legs/CA';
 import { Type3Transition } from '@fmgc/guidance/lnav/transitions/Type3';
 import { Coordinates } from '@fmgc/flightplanning/data/geo';
 import { IFLeg } from '@fmgc/guidance/lnav/legs/IF';
+import { Type4Transition } from '@fmgc/guidance/lnav/transitions/Type4';
+import { Guidable } from '@fmgc/guidance/Guidable';
 import { MapParameters } from '../utils/MapParameters';
 
 export enum FlightPlanType {
@@ -585,54 +586,24 @@ function makePathFromGeometry(geometry: Geometry, mapParams: MapParameters): str
     const path: string[] = [];
 
     for (const [i, leg] of geometry.legs.entries()) {
-        const prevLeg = geometry.legs.get(i - 1);
+        const inbound = geometry.transitions.get(i - 1) ?? geometry.legs.get(i - 1);
+        const outbound = geometry.transitions.get(i) ?? geometry.legs.get(i + 1);
 
-        const inboundTransition = geometry.transitions.get(i - 1);
-        const outboundTransition = geometry.transitions.get(i);
-
-        if (leg instanceof TFLeg) {
-            if (outboundTransition) {
-                // This is the transition after this leg - so since we are going in reverse order, draw it first
-                const [itp, ftp] = outboundTransition.getTurningPoints();
-
-                if (outboundTransition instanceof Type1Transition || outboundTransition instanceof Type3Transition) {
-                    path.push(...drawArc(
-                        mapParams,
-                        itp,
-                        ftp,
-                        outboundTransition.radius,
-                        outboundTransition.angle,
-                        outboundTransition.clockwise,
-                    ));
-                }
+        if (!inbound) {
+            if (DEBUG) {
+                console.error(`[FMS/Geometry] No inbound guidable for leg '${leg.repr}'.`);
             }
+            break;
+        }
 
-            // Draw the orthodromic path of the TF leg
+        if (inbound instanceof Transition) {
+            path.push(...drawTransition(mapParams, inbound));
+        }
 
-            // If we have a transition *before*, we need to go to the outbound turning point of it, not to the TO fix
-            let fromLla;
-            if (inboundTransition) {
-                fromLla = inboundTransition.getTurningPoints()[1];
-            } else {
-                fromLla = leg.from.infos.coordinates;
-            }
+        if (leg instanceof VMLeg) {
+            if (inbound) {
+                const fromLla = inbound.getTerminator()!;
 
-            // If we have a transition *after*, we need to go to the inbound turning point of it, not to the TO fix
-            let toLla;
-            if (outboundTransition) {
-                toLla = outboundTransition.getTurningPoints()[0];
-            } else {
-                toLla = leg.to.infos.coordinates;
-            }
-
-            path.push(...drawLine(
-                mapParams,
-                fromLla,
-                toLla,
-            ));
-        } else if (leg instanceof VMLeg) {
-            if (inboundTransition) {
-                const fromLla = inboundTransition.getTurningPoints()[1];
                 const farAwayPoint = Avionics.Utils.bearingDistanceToCoordinates(
                     leg.bearing,
                     mapParams.nmRadius + 2,
@@ -646,47 +617,78 @@ function makePathFromGeometry(geometry: Geometry, mapParams: MapParameters): str
                     farAwayPoint,
                 ));
             }
-        } else if (leg instanceof RFLeg) {
-            path.push(...drawArc(
-                mapParams,
-                leg.from.infos.coordinates,
-                leg.to.infos.coordinates,
-                leg.radius,
-                leg.angle,
-                leg.clockwise,
-            ));
-        } else if (leg instanceof CALeg) {
-            if (outboundTransition && outboundTransition instanceof Type3Transition) {
-                if (outboundTransition.isArc) {
-                    path.push(...drawArc(
-                        mapParams,
-                        outboundTransition.startPoint,
-                        outboundTransition.endPoint,
-                        outboundTransition.radius,
-                        outboundTransition.sweepAngle,
-                        outboundTransition.clockwise,
-                    ));
-                } else {
-                    // TODO line bruh
-                }
-            }
-
-            // Draw straight path
-
-            // If we have an inbound transition, we draw to its terminator. Otherwise, to the previous leg's terminator if there is one
-            if (inboundTransition || prevLeg) {
-                path.push(...drawLine(
-                    mapParams,
-                    leg.getTerminator()!,
-                    inboundTransition ? inboundTransition.getTerminator()! : prevLeg!.getTerminator()!,
-                ));
-            }
-        } else if (leg instanceof IFLeg) {
-            // Do nothing
+        } else {
+            path.push(...drawLeg(mapParams, leg, inbound, outbound));
         }
     }
 
     return path.join(' ');
+}
+
+function drawLeg(mapParams: MapParameters, leg: Leg, inbound: Guidable, outbound?: Guidable) {
+    const path: string[] = [];
+
+    if (leg instanceof RFLeg) {
+        path.push(...drawArc(
+            mapParams,
+            leg.from.infos.coordinates,
+            leg.to.infos.coordinates,
+            leg.radius,
+            leg.angle,
+            leg.clockwise,
+        ));
+    } else if (leg instanceof IFLeg) {
+        // Do nothing
+    } else {
+        // Draw the orthodromic path of the leg
+
+        path.push(...drawLine(
+            mapParams,
+            inbound.getTerminator()!,
+            outbound instanceof Type1Transition ? outbound.getTurningPoints()[0] : leg.getTerminator()!,
+        ));
+    }
+
+    return path;
+}
+
+function drawTransition(mapParams: MapParameters, transition: Transition): string[] {
+    const path: string[] = [];
+
+    const [itp, ftp] = transition.getTurningPoints();
+
+    if (transition instanceof Type3Transition && !transition.isArc) {
+        // TODO draw line
+        return [];
+    }
+
+    if (transition instanceof Type1Transition || transition instanceof Type3Transition) {
+        path.push(...drawArc(
+            mapParams,
+            itp,
+            ftp,
+            transition.radius,
+            transition.angle,
+            transition.clockwise,
+        ));
+    }
+
+    if (transition instanceof Type4Transition) {
+        if (transition.hasArc) {
+            path.push(...drawArc(
+                mapParams,
+                itp,
+                ftp,
+                transition.radius,
+                transition.arcSweepAngle,
+                transition.clockwise,
+            ));
+        }
+
+        path.push(...drawLine(mapParams, transition.lineStartPoint, transition.lineEndPoint));
+    }
+
+    return path;
 }
 
 function drawArc(mapParams: MapParameters, itp: Coordinates, ftp: Coordinates, radius: NauticalMiles, sweepAngle: Degrees, clockwise: boolean): string[] {

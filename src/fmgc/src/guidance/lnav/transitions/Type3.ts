@@ -103,6 +103,8 @@ export class Type3Transition extends Transition {
             this.startPoint = this.previousLeg.getTerminator();
             this.endPoint = this.previousLeg.getTerminator();
 
+            this.terminator = this.endPoint;
+
             this.isComputed = true;
 
             return;
@@ -113,6 +115,8 @@ export class Type3Transition extends Transition {
         this.center = turnCenter;
         this.endPoint = finalTurningPoint;
         this.sweepAngle = courseChange;
+
+        this.terminator = this.endPoint;
 
         this.isComputed = true;
     }

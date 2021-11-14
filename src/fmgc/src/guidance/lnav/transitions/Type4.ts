@@ -23,11 +23,11 @@ const acos = (input: Degrees) => Math.acos(input) * (180 / Math.PI);
 export class Type4Transition extends Transition {
     public previousLeg: Type4PreviousLeg;
 
-    public nextLeg: Type4NextLeg; // FIXME temporary
+    public nextLeg: Type4NextLeg;
 
     constructor(
         previousLeg: Type4PreviousLeg,
-        nextLeg: Type4NextLeg, // FIXME temporary
+        nextLeg: Type4NextLeg,
     ) {
         super();
         this.previousLeg = previousLeg;
@@ -55,19 +55,27 @@ export class Type4Transition extends Transition {
 
     public isArc: boolean;
 
-    public startPoint: Coordinates;
-
-    public endPoint: Coordinates;
-
     public center: Coordinates;
-
-    public sweepAngle: Degrees;
 
     public radius: NauticalMiles;
 
     public clockwise: boolean;
 
     public revertedTransition: Transition | null = null;
+
+    public lineStartPoint: Coordinates;
+
+    public lineEndPoint: Coordinates;
+
+    public hasArc: boolean;
+
+    public arcStartPoint: Coordinates;
+
+    public arcCentrePoint: Coordinates;
+
+    public arcEndPoint: Coordinates;
+
+    public arcSweepAngle: Degrees;
 
     rollAnticipationDistance(gs: MetresPerSecond, rollAngleChange: Degrees): NauticalMiles {
         return (gs / 3600) * ((Math.sqrt(1 + (2 * GuidanceConstants.k2 * Constants.G * rollAngleChange) / GuidanceConstants.maxRollRate) - 1) / (GuidanceConstants.k2 * Constants.G));
@@ -93,52 +101,44 @@ export class Type4Transition extends Transition {
 
         const itp = rollAnticipationDistance < 0.05 ? termFix
             : Geo.computeDestinationPoint(termFix, rollAnticipationDistance, this.previousLeg.bearing);
-        const turnCenter = Geo.computeDestinationPoint(itp, this.radius, this.previousLeg.bearing + turnDirection * 90);
+        const turnCentre = Geo.computeDestinationPoint(itp, this.radius, this.previousLeg.bearing + turnDirection * 90);
 
-        const distanceToFix = Geo.getDistance(turnCenter, nextFix);
+        const distanceToFix = Geo.getDistance(turnCentre, nextFix);
 
         if (distanceToFix < this.radius) {
             if (Math.abs(MathUtils.diffAngle(this.previousLeg.bearing, Geo.getGreatCircleBearing(termFix, nextFix))) < 60) {
                 this.revertedTransition = null;
-                // return [{
-                //     type: PathVectorType.Line,
-                //     startPoint: termFix,
-                //     endPoint: termFix,
-                // }];
+
+                this.hasArc = false;
+                this.lineStartPoint = termFix;
+                this.lineEndPoint = termFix;
             }
+
             // TODO: delayed turn, recalc RAD
+            if (DEBUG) {
+                console.error(['[FMS/Geometry] Type4 should be calculated with delayed turn.']);
+            }
         }
 
-        const a2 = Geo.getGreatCircleBearing(turnCenter, itp);
-        const a3 = Geo.getGreatCircleBearing(turnCenter, nextFix);
+        const a2 = Geo.getGreatCircleBearing(turnCentre, itp);
+        const a3 = Geo.getGreatCircleBearing(turnCentre, nextFix);
         const a5 = acos(this.radius / distanceToFix);
 
         trackChange = MathUtils.diffAngle(a2, MathUtils.diffAngle(turnDirection * a5, a3));
 
-        const ftp = Geo.computeDestinationPoint(turnCenter, this.radius, this.previousLeg.bearing + trackChange - 90 * turnDirection);
+        const ftp = Geo.computeDestinationPoint(turnCentre, this.radius, this.previousLeg.bearing + trackChange - 90 * turnDirection);
 
-        // return [
-        //     {
-        //         type: PathVectorType.Line,
-        //         startPoint: this.previousLeg.terminationPoint,
-        //         endPoint: itp,
-        //     },
-        //     {
-        //         type: PathVectorType.Arc,
-        //         startPoint: itp,
-        //         centrePoint: turnCenter,
-        //         sweepAngle: trackChange,
-        //         endPoint: ftp,
-        //     },
-        // ];
+        this.lineStartPoint = this.previousLeg.getTerminator();
+        this.lineEndPoint = itp;
+        this.hasArc = true;
+        this.arcStartPoint = itp;
+        this.arcCentrePoint = turnCentre;
+        this.arcEndPoint = ftp;
+        this.arcSweepAngle = trackChange;
     }
 
     get isCircularArc(): boolean {
         return this.isArc;
-    }
-
-    get angle(): Degrees {
-        return this.sweepAngle;
     }
 
     isAbeam(ppos: LatLongData): boolean {
@@ -159,7 +159,7 @@ export class Type4Transition extends Transition {
     }
 
     getTurningPoints(): [Coordinates, Coordinates] {
-        return [this.startPoint, this.endPoint];
+        return [this.arcStartPoint, this.arcEndPoint];
     }
 
     /**

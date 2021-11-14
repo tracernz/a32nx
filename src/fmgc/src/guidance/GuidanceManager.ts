@@ -9,6 +9,7 @@ import { CALeg } from '@fmgc/guidance/lnav/legs/CA';
 import { LegType } from '@fmgc/types/fstypes/FSEnums';
 import { TransitionPicker } from '@fmgc/guidance/lnav/TransitionPicker';
 import { IFLeg } from '@fmgc/guidance/lnav/legs/IF';
+import { DFLeg } from '@fmgc/guidance/lnav/legs/DF';
 import { Geometry } from './Geometry';
 import { FlightPlanManager } from '../flightplanning/FlightPlanManager';
 
@@ -29,16 +30,20 @@ export class GuidanceManager {
         return new IFLeg(fix, segment, indexInFullPath);
     }
 
-    private static tfBetween(from: WayPoint, to: WayPoint, segment: SegmentType, indexInFullPath: number) {
-        return new TFLeg(from, to, segment, indexInFullPath);
+    private static vmLeg(heading: Degrees, initialPosition: Coordinates, initialCourse: Degrees, segment: SegmentType, indexInFullPath: number) {
+        return new VMLeg(heading, initialPosition, initialCourse, segment, indexInFullPath);
     }
 
-    private static vmWithHeading(heading: Degrees, initialPosition: Coordinates, initialCourse: Degrees, segment: SegmentType, indexInFullPath: number) {
-        return new VMLeg(heading, initialPosition, initialCourse, segment, indexInFullPath);
+    private static dfLeg(fix: WayPoint, segment: SegmentType, indexInFullPath: number) {
+        return new DFLeg(fix, segment, indexInFullPath);
     }
 
     private static rfLeg(from: WayPoint, to: WayPoint, center: LatLongData, segment: SegmentType, indexInFullPath: number) {
         return new RFLeg(from, to, center, segment, indexInFullPath);
+    }
+
+    private static tfLeg(from: WayPoint, to: WayPoint, segment: SegmentType, indexInFullPath: number) {
+        return new TFLeg(from, to, segment, indexInFullPath);
     }
 
     private static caLeg(course: DegreesTrue, altitude: Feet, segment: SegmentType, indexInFullPath: number) {
@@ -70,6 +75,9 @@ export class GuidanceManager {
         }
 
         if (to.additionalData) {
+            if (to.additionalData.legType === LegType.DF) {
+                return GuidanceManager.dfLeg(to, segment, toIndex);
+            }
             if (to.additionalData.legType === LegType.RF) {
                 return GuidanceManager.rfLeg(from, to, to.additionalData.center, segment, toIndex);
             }
@@ -82,10 +90,10 @@ export class GuidanceManager {
         }
 
         if (to.isVectors) {
-            return GuidanceManager.vmWithHeading(to.additionalData.vectorsHeading, to.infos.coordinates, to.additionalData.vectorsCourse, segment, toIndex);
+            return GuidanceManager.vmLeg(to.additionalData.vectorsHeading, to.infos.coordinates, to.additionalData.vectorsCourse, segment, toIndex);
         }
 
-        return GuidanceManager.tfBetween(from, to, segment, toIndex);
+        return GuidanceManager.tfLeg(from, to, segment, toIndex);
     }
 
     getPreviousLeg(): Leg | null {
