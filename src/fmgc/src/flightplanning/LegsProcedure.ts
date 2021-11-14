@@ -22,7 +22,7 @@
  * SOFTWARE.
  */
 
-import { AltitudeDescriptor, FixTypeFlags } from '../types/fstypes/FSEnums';
+import { AltitudeDescriptor, FixTypeFlags, LegType, TurnDirection } from '../types/fstypes/FSEnums';
 import { FixNamingScheme } from './FixNamingScheme';
 import { GeoMath } from './GeoMath';
 import { RawDataMapper } from './RawDataMapper';
@@ -180,6 +180,11 @@ export class LegsProcedure {
                   case 19:
                       mappedLeg = this.mapHeadingUntilAltitude(currentLeg, this._previousFix);
                       break;
+                  case LegType.HA:
+                  case LegType.HF:
+                  case LegType.HM:
+                      mappedLeg = this.mapHold(currentLeg);
+                      break;
                   default:
                       isLegMappable = false;
                       break;
@@ -193,8 +198,15 @@ export class LegsProcedure {
                   mappedLeg.legAltitude1 = currentLeg.altitude1 * 3.28084;
                   mappedLeg.legAltitude2 = currentLeg.altitude2 * 3.28084;
                   mappedLeg.speedConstraint = currentLeg.speedRestriction;
+                  mappedLeg.turnDirection = currentLeg.turnDirection;
                   mappedLeg.additionalData.legType = currentLeg.type;
                   mappedLeg.additionalData.overfly = currentLeg.flyOver;
+
+                  mappedLeg.additionalData.distance = currentLeg.distanceMinutes ? 0 : currentLeg.distance / 1852;
+                  mappedLeg.additionalData.distanceInMinutes = currentLeg.distanceMinutes ? currentLeg.distance : 0;
+                  mappedLeg.additionalData.course = currentLeg.trueDegrees ? currentLeg.course : A32NX_Util.magneticToTrue(currentLeg.course, Facilities.getMagVar(mappedLeg.infos.coordinates.lat, mappedLeg.infos.coordinates.long));
+                  mappedLeg.additionalData.course = Avionics.Utils.clampAngle(mappedLeg.additionalData.course + 180);
+                  //mappedLeg.turnDirection = TurnDirection.Left;
               }
 
               this._currentIndex++;
@@ -439,6 +451,17 @@ export class LegsProcedure {
       waypoint.additionalData.turnDirection = leg.turnDirection;
 
       return waypoint;
+  }
+
+  public mapHold(leg: RawProcedureLeg): WayPoint {
+    const facility = this._facilities.get(leg.fixIcao);
+    const waypoint = RawDataMapper.toWaypoint(facility, this._instrument);
+
+    waypoint.additionalData.distance = leg.distanceMinutes ? 0 : leg.distance / 1852;
+    waypoint.additionalData.distanceInMinutes = leg.distanceMinutes ? leg.distance : 0;
+    waypoint.additionalData.course = leg.trueDegrees ? leg.course : A32NX_Util.magneticToTrue(leg.course, Facilities.getMagVar(facility.lat, facility.lon));
+
+    return waypoint;
   }
 
   /**

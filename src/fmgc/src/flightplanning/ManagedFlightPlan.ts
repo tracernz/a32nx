@@ -355,6 +355,7 @@ export class ManagedFlightPlan {
         index?: number | undefined,
         segmentType?: SegmentType,
     ): void {
+        console.log('addWaypoint', waypoint, index, SegmentType[segmentType]);
         const mappedWaypoint: WayPoint = (waypoint instanceof WayPoint) ? waypoint : RawDataMapper.toWaypoint(waypoint, this._parentInstrument);
 
         if (mappedWaypoint.type === 'A' && index === 0) {
@@ -640,6 +641,7 @@ export class ManagedFlightPlan {
             legAltitude1: waypoint.legAltitude1,
             legAltitude2: waypoint.legAltitude2,
             speedConstraint: waypoint.speedConstraint,
+            turnDirection: waypoint.turnDirection,
             isVectors: waypoint.isVectors,
             endsInDiscontinuity: waypoint.endsInDiscontinuity,
             discontinuityCanBeCleared: waypoint.discontinuityCanBeCleared,
@@ -937,6 +939,7 @@ export class ManagedFlightPlan {
      */
     public async buildApproach(): Promise<void> {
         const legs = [];
+        const missedLegs = [];
         const destination = this.destinationAirfield;
 
         const { approachIndex } = this.procedureDetails;
@@ -954,7 +957,8 @@ export class ManagedFlightPlan {
 
         if (approachIndex !== -1) {
             legs.push(...destinationInfo.approaches[approachIndex].finalLegs);
-            // console.log('MFP: buildApproach - pushing final legs ->', legs);
+            missedLegs.push(...destinationInfo.approaches[approachIndex].missedLegs);
+            console.log(destinationInfo.approaches[approachIndex].missedLegs);
         }
 
         let { _startIndex, segment } = this.truncateSegment(SegmentType.Approach);
@@ -1035,6 +1039,30 @@ export class ManagedFlightPlan {
                 }
             }
         }
+
+
+        if (missedLegs.length > 0) {
+            let { _startIndex, segment } = this.truncateSegment(SegmentType.Missed);
+
+            if (segment === FlightPlanSegment.Empty) {
+                segment = this.addSegment(SegmentType.Missed);
+                _startIndex = segment.offset;
+            }
+
+            let waypointIndex = _startIndex;
+
+            const missedProcedure = new LegsProcedure(missedLegs, this.getWaypoint(_startIndex - 1), this._parentInstrument);
+            while (missedProcedure.hasNext()) {
+                // eslint-disable-next-line no-await-in-loop
+                const waypoint = await missedProcedure.getNext().catch(console.error);
+
+                if (waypoint !== undefined) {
+                    // console.log('  ---- MFP: buildApproach: added waypoint', waypoint.ident, ' to segment ', segment);
+                    this.addWaypoint(waypoint, ++waypointIndex, segment.type);
+                }
+            }
+        }
+
         this.updateArrivalApproachSpeeds();
     }
 

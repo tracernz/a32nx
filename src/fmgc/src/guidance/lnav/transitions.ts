@@ -1,4 +1,5 @@
 import { Guidable } from '@fmgc/guidance/Geometry';
+import { PathVector } from './PathVector';
 
 export abstract class Transition implements Guidable {
     abstract isAbeam(ppos: LatLongData): boolean;
@@ -20,4 +21,12 @@ export abstract class Transition implements Guidable {
     abstract getTurningPoints(): [LatLongData, LatLongData];
 
     abstract get distance(): NauticalMiles;
+
+    get isNull(): boolean {
+        return false;
+    }
+
+    get predictedPath(): PathVector[] | undefined {
+        return undefined;
+    }
 }

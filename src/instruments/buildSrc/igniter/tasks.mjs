@@ -57,10 +57,10 @@ export function getInstrumentsIgniterTasks() {
         .filter((d) => d.isDirectory() && fs.existsSync(join(Directories.instruments, 'src', d.name, 'config.json')));
 
     return [
-        ...baseInstruments.map(({ name }) => new ExecTask(
+        ...baseInstruments.map(({ name, additionalDeps }) => new ExecTask(
             name,
             `node src/instruments/buildSrc/igniter/worker.mjs ${name}`,
-            [join('src/instruments/src', name), join('flybywire-aircraft-a320-neo/html_ui/Pages/VCockpit/Instruments/A32NX', name)],
+            [join('src/instruments/src', name), join('flybywire-aircraft-a320-neo/html_ui/Pages/VCockpit/Instruments/A32NX', name), ...(additionalDeps ?? [])],
         )),
         ...ecamPages.map(({ name, path }) => new ExecTask(
             name,

@@ -1,5 +1,6 @@
 import { Guidable } from '@fmgc/guidance/Geometry';
 import { SegmentType } from '@fmgc/wtsdk';
+import { PathVector } from '../PathVector';
 
 export enum AltitudeConstraintType {
     at,
@@ -32,6 +33,9 @@ export abstract class Leg implements Guidable {
 
     get isCircularArc(): boolean;
 
+    /**
+     * @deprecated Use inboundCourse or outboundCourse instead
+     */
     get bearing(): Degrees;
 
     get distance(): NauticalMiles;
@@ -43,6 +47,12 @@ export abstract class Leg implements Guidable {
     get initialLocation(): LatLongData | undefined;
 
     get terminatorLocation(): LatLongData | undefined;
+
+    get predictedPath(): PathVector[];
+
+    abstract get inboundCourse(): Degrees | undefined;
+
+    abstract get outboundCourse(): Degrees | undefined;
 
     abstract getPseudoWaypointLocation(distanceBeforeTerminator: NauticalMiles): LatLongData | undefined;
 

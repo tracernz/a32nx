@@ -22,6 +22,8 @@ export class TFLeg extends Leg {
 
     private mDistance: NauticalMiles;
 
+    private course: Degrees;
+
     constructor(from: WayPoint, to: WayPoint, segment: SegmentType, indexInFullPath: number) {
         super();
         this.from = from;
@@ -30,6 +32,10 @@ export class TFLeg extends Leg {
         this.segment = segment;
         this.indexInFullPath = indexInFullPath;
         this.constraintType = to.constraintType;
+        this.course = Avionics.Utils.computeGreatCircleHeading(
+            this.from.infos.coordinates,
+            this.to.infos.coordinates,
+        );
     }
 
     get isCircularArc(): boolean {
@@ -71,6 +77,14 @@ export class TFLeg extends Leg {
 
     get terminatorLocation(): LatLongData {
         return waypointToLocation(this.to);
+    }
+
+    get inboundCourse(): Degrees {
+        return this.course;
+    }
+
+    get outboundCourse(): Degrees {
+        return this.course;
     }
 
     getPseudoWaypointLocation(distanceBeforeTerminator: NauticalMiles): LatLongData {

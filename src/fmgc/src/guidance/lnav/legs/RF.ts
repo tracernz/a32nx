@@ -8,7 +8,7 @@ import {
     waypointToLocation,
 } from '@fmgc/guidance/lnav/legs';
 import { SegmentType } from '@fmgc/wtsdk';
-import { arcDistanceToGo } from '../CommonGeometry';
+import { arcDistanceToGo, arcGuidance } from '../CommonGeometry';
 
 export class RFLeg extends Leg {
     // termination fix of the previous leg
@@ -90,6 +90,14 @@ export class RFLeg extends Leg {
         return waypointToLocation(this.to);
     }
 
+    get inboundCourse(): Degrees {
+        return Avionics.Utils.clampAngle(Avionics.Utils.computeGreatCircleHeading(this.center, this.from.infos.coordinates) + (this.clockwise ? 90 : -90));
+    }
+
+    get outboundCourse(): Degrees {
+        return Avionics.Utils.clampAngle(Avionics.Utils.computeGreatCircleHeading(this.center, this.to.infos.coordinates) + (this.clockwise ? 90 : -90));
+    }
+
     getPseudoWaypointLocation(distanceBeforeTerminator: NauticalMiles): LatLongData {
         const distanceRatio = distanceBeforeTerminator / this.distance;
         const angleFromTerminator = distanceRatio * this.angle;
@@ -106,34 +114,8 @@ export class RFLeg extends Leg {
 
     // basically straight from type 1 transition... willl need refinement
     getGuidanceParameters(ppos: LatLongAlt, trueTrack: number): GuidanceParameters | null {
-        const { center } = this;
-
-        const bearingPpos = Avionics.Utils.computeGreatCircleHeading(
-            center,
-            ppos,
-        );
-
-        const desiredTrack = this.clockwise ? Avionics.Utils.clampAngle(bearingPpos + 90) : Avionics.Utils.clampAngle(bearingPpos - 90);
-        const trackAngleError = Avionics.Utils.diffAngle(trueTrack, desiredTrack);
-
-        const distanceFromCenter = Avionics.Utils.computeGreatCircleDistance(
-            center,
-            ppos,
-        );
-        const crossTrackError = this.clockwise
-            ? distanceFromCenter - this.radius
-            : this.radius - distanceFromCenter;
-
-        const groundSpeed = SimVar.GetSimVarValue('GPS GROUND SPEED', 'meters per second');
-        const radiusInMeter = this.radius * 1852;
-        const phiCommand = (this.clockwise ? 1 : -1) * Math.atan((groundSpeed * groundSpeed) / (radiusInMeter * 9.81)) * (180 / Math.PI);
-
-        return {
-            law: ControlLaw.LATERAL_PATH,
-            trackAngleError,
-            crossTrackError,
-            phiCommand,
-        };
+        // TODO should be defined in terms of to fix
+        return arcGuidance(ppos, trueTrack, this.from.infos.coordinates, this.center, this.clockwise ? this.angle : -this.angle);
     }
 
     getNominalRollAngle(gs): Degrees {

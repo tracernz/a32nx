@@ -46,6 +46,8 @@ declare global {
 
         distanceInFP: number;
 
+        distanceInMinutes: number;
+
         cumulativeDistanceInFP: number;
 
         instrument: BaseInstrument;
@@ -67,6 +69,8 @@ declare global {
         constraintType: WaypointConstraintType;
 
         additionalData: { [key: string]: any }
+
+        turnDirection: TurnDirection;
 
         verticalAngle?: number;
 

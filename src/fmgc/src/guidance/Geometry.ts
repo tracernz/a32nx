@@ -112,7 +112,7 @@ export class Geometry {
 
         // first, check if we're abeam with one of the transitions (start or end)
         const fromTransition = this.transitions.get(0);
-        if (fromTransition && fromTransition.isAbeam(ppos)) {
+        if (fromTransition && !fromTransition.isNull && fromTransition.isAbeam(ppos)) {
             if (fromTransition instanceof Type1Transition && !fromTransition.isFrozen) {
                 fromTransition.isFrozen = true;
             }
@@ -132,7 +132,7 @@ export class Geometry {
         }
 
         const toTransition = this.transitions.get(1);
-        if (toTransition) {
+        if (toTransition && !toTransition.isNull) {
             if (toTransition.isAbeam(ppos)) {
                 if (toTransition instanceof Type1Transition && !toTransition.isFrozen) {
                     toTransition.isFrozen = true;

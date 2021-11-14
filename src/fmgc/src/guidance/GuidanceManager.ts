@@ -1,3 +1,4 @@
+import { HALeg, HFLeg, HMLeg } from '@fmgc/guidance/lnav/legs/HX';
 import { RFLeg } from '@fmgc/guidance/lnav/legs/RF';
 import { TFLeg } from '@fmgc/guidance/lnav/legs/TF';
 import { VMLeg } from '@fmgc/guidance/lnav/legs/VM';
@@ -6,8 +7,10 @@ import { Transition } from '@fmgc/guidance/lnav/transitions';
 import { Type1Transition } from '@fmgc/guidance/lnav/transitions/Type1';
 import { SegmentType } from '@fmgc/wtsdk';
 import { Coordinates } from '@fmgc/flightplanning/data/geo';
+import { LegType } from '@fmgc/types/fstypes/FSEnums';
 import { Geometry } from './Geometry';
 import { FlightPlanManager } from '../flightplanning/FlightPlanManager';
+import { Type5Transition } from './lnav/transitions/Type5';
 
 /**
  * This class will guide the aircraft by predicting a flight path and
@@ -34,7 +37,19 @@ export class GuidanceManager {
         return new RFLeg(from, to, center, segment, indexInFullPath);
     }
 
-    getPreviousLeg(): RFLeg | TFLeg | VMLeg | null {
+    private static haLeg(to: WayPoint, segment: SegmentType, indexInFullPath: number) {
+        return new HALeg(to, segment, indexInFullPath);
+    }
+
+    private static hfLeg(to: WayPoint, segment: SegmentType, indexInFullPath: number) {
+        return new HFLeg(to, segment, indexInFullPath);
+    }
+
+    private static hmLeg(to: WayPoint, segment: SegmentType, indexInFullPath: number) {
+        return new HMLeg(to, segment, indexInFullPath);
+    }
+
+    getPreviousLeg(): HMLeg | RFLeg | TFLeg | VMLeg | null {
         const activeIndex = this.flightPlanManager.getActiveWaypointIndex(false, false, 0);
 
         const from = this.flightPlanManager.getWaypoint(activeIndex - 2, 0);
@@ -53,6 +68,18 @@ export class GuidanceManager {
             return GuidanceManager.rfLeg(from, to, to.additionalData.center, segment, activeIndex - 1);
         }
 
+        if (to.additionalData?.legType === LegType.HA) {
+            return GuidanceManager.haLeg(to, segment, activeIndex - 1);
+        }
+
+        if (to.additionalData?.legType === LegType.HF) {
+            return GuidanceManager.hfLeg(to, segment, activeIndex - 1);
+        }
+
+        if (to.additionalData?.legType === LegType.HM) {
+            return GuidanceManager.hmLeg(to, segment, activeIndex - 1);
+        }
+
         if (to.isVectors) {
             return GuidanceManager.vmWithHeading(to.additionalData.vectorsHeading, to.infos.coordinates, to.additionalData.vectorsCourse, segment, activeIndex - 1);
         }
@@ -60,7 +87,7 @@ export class GuidanceManager {
         return GuidanceManager.tfBetween(from, to, segment, activeIndex - 1);
     }
 
-    getActiveLeg(): RFLeg | TFLeg | VMLeg | null {
+    getActiveLeg(): HMLeg | RFLeg | TFLeg | VMLeg | null {
         const activeIndex = this.flightPlanManager.getActiveWaypointIndex(false, false, 0);
 
         const from = this.flightPlanManager.getWaypoint(activeIndex - 1, 0);
@@ -79,6 +106,18 @@ export class GuidanceManager {
             return GuidanceManager.rfLeg(from, to, to.additionalData.center, segment, activeIndex);
         }
 
+        if (to.additionalData?.legType === LegType.HA) {
+            return GuidanceManager.haLeg(to, segment, activeIndex - 1);
+        }
+
+        if (to.additionalData?.legType === LegType.HF) {
+            return GuidanceManager.hfLeg(to, segment, activeIndex - 1);
+        }
+
+        if (to.additionalData?.legType === LegType.HM) {
+            return GuidanceManager.hmLeg(to, segment, activeIndex - 1);
+        }
+
         if (to.isVectors) {
             return GuidanceManager.vmWithHeading(to.additionalData.vectorsHeading, to.infos.coordinates, to.additionalData.vectorsCourse, segment, activeIndex);
         }
@@ -86,7 +125,7 @@ export class GuidanceManager {
         return GuidanceManager.tfBetween(from, to, segment, activeIndex);
     }
 
-    getNextLeg(): RFLeg | TFLeg | VMLeg | null {
+    getNextLeg(): HMLeg | RFLeg | TFLeg | VMLeg | null {
         const activeIndex = this.flightPlanManager.getActiveWaypointIndex(false, false, 0);
 
         const from = this.flightPlanManager.getWaypoint(activeIndex, 0);
@@ -103,6 +142,18 @@ export class GuidanceManager {
 
         if (to.additionalData && to.additionalData.legType === 17) {
             return GuidanceManager.rfLeg(from, to, to.additionalData.center, segment, activeIndex + 1);
+        }
+
+        if (to.additionalData?.legType === LegType.HA) {
+            return GuidanceManager.haLeg(to, segment, activeIndex - 1);
+        }
+
+        if (to.additionalData?.legType === LegType.HF) {
+            return GuidanceManager.hfLeg(to, segment, activeIndex - 1);
+        }
+
+        if (to.additionalData?.legType === LegType.HM) {
+            return GuidanceManager.hmLeg(to, segment, activeIndex - 1);
         }
 
         if (to.isVectors) {
@@ -129,7 +180,12 @@ export class GuidanceManager {
         const transitions = new Map<number, Transition>();
 
         if (prevLeg) {
-            if (prevLeg instanceof TFLeg && !(activeLeg instanceof RFLeg)) {
+            if (activeLeg instanceof HMLeg) {
+                transitions.set(1, new Type5Transition(
+                    prevLeg,
+                    activeLeg,
+                ));
+            } else if (prevLeg instanceof TFLeg && !(activeLeg instanceof RFLeg)) {
                 transitions.set(0, new Type1Transition(
                     prevLeg,
                     activeLeg,
@@ -139,7 +195,12 @@ export class GuidanceManager {
 
         // TODO generalise selection of transitions
         if (nextLeg) {
-            if (activeLeg instanceof TFLeg && !(nextLeg instanceof RFLeg)) {
+            if (nextLeg instanceof HMLeg && !(activeLeg instanceof VMLeg)) {
+                transitions.set(1, new Type5Transition(
+                    activeLeg,
+                    nextLeg,
+                ));
+            } else if (activeLeg instanceof TFLeg && !(nextLeg instanceof RFLeg)) {
                 transitions.set(1, new Type1Transition(
                     activeLeg,
                     nextLeg,
@@ -193,8 +254,29 @@ export class GuidanceManager {
                 continue;
             }
 
-            if (to.additionalData && to.additionalData.legType === 17) {
+            if (to.additionalData?.legType === LegType.RF) {
                 const currentLeg = GuidanceManager.rfLeg(from, to, to.additionalData.center, segment, i);
+                legs.set(i, currentLeg);
+
+                continue;
+            }
+
+            if (to.additionalData?.legType === LegType.HA) {
+                const currentLeg = GuidanceManager.hfLeg(to, segment, i);
+                legs.set(i, currentLeg);
+
+                continue;
+            }
+
+            if (to.additionalData?.legType === LegType.HF) {
+                const currentLeg = GuidanceManager.haLeg(to, segment, i);
+                legs.set(i, currentLeg);
+
+                continue;
+            }
+
+            if (to.additionalData?.legType === LegType.HM) {
+                const currentLeg = GuidanceManager.hmLeg(to, segment, i);
                 legs.set(i, currentLeg);
 
                 continue;
@@ -220,6 +302,14 @@ export class GuidanceManager {
             // Transition (hard-coded to Type 1 for now)
             if (nextLeg && nextLeg instanceof TFLeg || nextLeg instanceof VMLeg) { // FIXME this cannot happen, but what are you gonna do about it ?
                 const transition = new Type1Transition(
+                    currentLeg,
+                    nextLeg,
+                    predictWithCurrentSpeed,
+                );
+
+                transitions.set(i, transition);
+            } else if (nextLeg && (nextLeg instanceof HALeg || nextLeg instanceof HFLeg || nextLeg instanceof HMLeg)) {
+                const transition = new Type5Transition(
                     currentLeg,
                     nextLeg,
                     predictWithCurrentSpeed,

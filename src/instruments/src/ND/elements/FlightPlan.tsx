@@ -17,8 +17,9 @@ import { Leg } from '@fmgc/guidance/lnav/legs';
 import { Transition } from '@fmgc/guidance/lnav/transitions';
 import { NdSymbol, NdSymbolTypeFlags } from '@shared/NavigationDisplay';
 import { useCurrentFlightPlan } from '@instruments/common/flightplan';
+import { PathVectorType } from '@fmgc/guidance/lnav/PathVector';
 import { MapParameters } from '../utils/MapParameters';
-
+//
 export enum FlightPlanType {
     Nav,
     Dashed,
@@ -574,8 +575,69 @@ function makePathFromGeometry(geometry: Geometry, mapParams: MapParameters): str
         let x;
         let y;
 
-        if (leg instanceof TFLeg) {
-            if (transition) {
+        const predictedPath = leg.predictedPath;
+        const transitionPath = transition?.predictedPath;
+
+        if (transitionPath) {
+            for (const vector of transitionPath) {
+                const [inX, inY] = mapParams.coordinatesToXYy(vector.startPoint);
+                x = MathUtils.fastToFixed(inX, 1);
+                y = MathUtils.fastToFixed(inY, 1);
+                path.push(`M ${x} ${y}`);
+
+                switch (vector.type) {
+                case PathVectorType.Line: {
+                    const [outX, outY] = mapParams.coordinatesToXYy(vector.endPoint!);
+                    x = MathUtils.fastToFixed(outX, 1);
+                    y = MathUtils.fastToFixed(outY, 1);
+                    path.push(`L ${x} ${y}`);
+                    break;
+                }
+                case PathVectorType.Arc: {
+                    const r = Avionics.Utils.computeGreatCircleDistance(vector.centrePoint!, vector.startPoint) * mapParams.nmToPx;
+                    const [outX, outY] = mapParams.coordinatesToXYy(vector.endPoint!);
+                    x = MathUtils.fastToFixed(outX, 1);
+                    y = MathUtils.fastToFixed(outY, 1);
+                    path.push(`A ${r} ${r} 0 ${Math.abs(vector.sweepAngle!) >= 180 ? 1 : 0} ${vector.sweepAngle! > 0 ? 1 : 0} ${x} ${y}`);
+                    break;
+                }
+                case PathVectorType.DebugPoint: {
+                    path.push('m-10,0 l20,0 m-10,-10 l0,20');
+                    break;
+                }
+                default:
+                }
+            }
+        }
+        //
+        if (predictedPath) {
+            for (const vector of predictedPath) {
+                const [inX, inY] = mapParams.coordinatesToXYy(vector.startPoint);
+                x = MathUtils.fastToFixed(inX, 1);
+                y = MathUtils.fastToFixed(inY, 1);
+                path.push(`M ${x} ${y}`);
+
+                switch (vector.type) {
+                case PathVectorType.Line: {
+                    const [outX, outY] = mapParams.coordinatesToXYy(vector.endPoint!);
+                    x = MathUtils.fastToFixed(outX, 1);
+                    y = MathUtils.fastToFixed(outY, 1);
+                    path.push(`L ${x} ${y}`);
+                    break;
+                }
+                case PathVectorType.Arc: {
+                    const r = Avionics.Utils.computeGreatCircleDistance(vector.centrePoint!, vector.startPoint) * mapParams.nmToPx;
+                    const [outX, outY] = mapParams.coordinatesToXYy(vector.endPoint!);
+                    x = MathUtils.fastToFixed(outX, 1);
+                    y = MathUtils.fastToFixed(outY, 1);
+                    path.push(`A ${r} ${r} 0 ${Math.abs(vector.sweepAngle!) >= 180 ? 1 : 0} ${vector.sweepAngle! > 0 ? 1 : 0} ${x} ${y}`);
+                    break;
+                }
+                default:
+                }
+            }
+        } else if (leg instanceof TFLeg) {
+            if (transition && transitionPath === undefined) {
                 // This is the transition after this leg - so since we are going in reverse order, draw it first
                 if (transition instanceof Type1Transition) {
                     const [inLla, outLla] = transition.getTurningPoints();
@@ -623,6 +685,8 @@ function makePathFromGeometry(geometry: Geometry, mapParams: MapParameters): str
             if (transition) {
                 if (transition instanceof Type1Transition) {
                     toLla = transition.getTurningPoints()[0];
+                } else {
+                    toLla = leg.to.infos.coordinates;
                 }
             } else {
                 toLla = leg.to.infos.coordinates;
@@ -676,7 +740,7 @@ function makePathFromGeometry(geometry: Geometry, mapParams: MapParameters): str
             const cw = leg.clockwise;
 
             path.push(`A ${r} ${r} 0 ${leg.angle >= 180 ? 1 : 0} ${cw ? 1 : 0} ${x} ${y}`);
-        } // TODO CALeg
+        }
     }
 
     return path.join(' ');

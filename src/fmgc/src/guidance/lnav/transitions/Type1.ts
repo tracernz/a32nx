@@ -4,6 +4,7 @@ import { VMLeg } from '@fmgc/guidance/lnav/legs/VM';
 import { Transition } from '@fmgc/guidance/lnav/transitions';
 import { ControlLaw, GuidanceParameters } from '@fmgc/guidance/ControlLaws';
 import { arcDistanceToGo } from '../CommonGeometry';
+import { HMLeg } from '../legs/HX';
 
 const mod = (x: number, n: number) => x - Math.floor(x / n) * n;
 
@@ -11,9 +12,9 @@ const mod = (x: number, n: number) => x - Math.floor(x / n) * n;
  * A type I transition uses a fixed turn radius between two fix-referenced legs.
  */
 export class Type1Transition extends Transition {
-    public previousLeg: TFLeg;
+    public previousLeg: HMLeg | TFLeg;
 
-    public nextLeg: TFLeg | VMLeg;
+    public nextLeg: HMLeg | TFLeg | VMLeg;
 
     public radius: NauticalMiles;
 
@@ -22,8 +23,8 @@ export class Type1Transition extends Transition {
     public isFrozen: boolean = false;
 
     constructor(
-        previousLeg: TFLeg,
-        nextLeg: TFLeg | VMLeg, // FIXME this cannot happen, but what are you gonna do about it ?,
+        previousLeg: HMLeg | TFLeg,
+        nextLeg: HMLeg | TFLeg | VMLeg, // FIXME this cannot happen, but what are you gonna do about it ?,
         predictWithCurrentSpeed: boolean = true,
     ) {
         super();
@@ -39,6 +40,13 @@ export class Type1Transition extends Transition {
         }
 
         this.recomputeWithParameters(kts);
+    }
+
+    get isNull(): boolean {
+        return Math.abs(Avionics.Utils.diffAngle(
+            this.previousLeg.outboundCourse,
+            this.nextLeg.inboundCourse,
+        )) <= 3;
     }
 
     recomputeWithParameters(tas: Knots) {
