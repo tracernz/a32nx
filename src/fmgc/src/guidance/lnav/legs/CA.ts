@@ -24,12 +24,10 @@ export class CALeg extends Leg {
 
     private terminator: Coordinates | undefined;
 
-    getTerminator(): Coordinates | undefined {
-        return this.terminator;
-    }
+    private inboundGuidable: Guidable | undefined;
 
-    recomputeWithParameters(_isActive: boolean, _tas: Knots, _gs: Knots, _ppos: Coordinates, _previousGuidable: Guidable, _nextGuidable: Guidable) {
-        this.start = _previousGuidable.getTerminator();
+    getTerminator(): Coordinates | undefined {
+        this.start = this.inboundGuidable.getTerminator();
 
         const TEMP_DISTANCE = 2;
 
@@ -39,6 +37,12 @@ export class CALeg extends Leg {
             this.start.lat,
             this.start.long,
         );
+
+        return this.terminator;
+    }
+
+    recomputeWithParameters(_isActive: boolean, _tas: Knots, _gs: Knots, _ppos: Coordinates, previousGuidable: Guidable, _nextGuidable: Guidable) {
+        this.inboundGuidable = previousGuidable;
 
         this.isComputed = true;
     }

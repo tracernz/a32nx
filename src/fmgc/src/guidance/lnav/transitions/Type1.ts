@@ -144,7 +144,7 @@ export class Type1Transition extends Transition {
         const bisecting = (180 - this.angle) / 2;
         const distanceTurningPointToWaypoint = this.radius / Math.tan(bisecting * Avionics.Utils.DEG2RAD);
 
-        const { lat, long } = this.previousLeg.getTerminator();
+        const { lat, long } = this.previousLeg.fix;
 
         const inbound = Avionics.Utils.bearingDistanceToCoordinates(
             mod(this.previousLeg.bearing + 180, 360),

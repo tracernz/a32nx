@@ -93,6 +93,11 @@ export class GuidanceManager {
             return GuidanceManager.vmLeg(to.additionalData.vectorsHeading, to.infos.coordinates, to.additionalData.vectorsCourse, segment, toIndex);
         }
 
+        // Substitute TF after CA with DF for now to make transitions work
+        if (from.additionalData?.legType === LegType.CA) {
+            return GuidanceManager.dfLeg(to, segment, toIndex);
+        }
+
         return GuidanceManager.tfLeg(from, to, segment, toIndex);
     }
 
@@ -159,7 +164,6 @@ export class GuidanceManager {
             legs.set(0, prevLeg);
         }
 
-        // TODO generalise selection of transitions
         if (nextLeg) {
             const transition = TransitionPicker.forLegs(activeLeg, nextLeg);
 
@@ -206,7 +210,7 @@ export class GuidanceManager {
             const transition = TransitionPicker.forLegs(currentLeg, nextLeg);
 
             if (transition) {
-                transitions.set(1, transition);
+                transitions.set(i, transition);
             }
         }
 

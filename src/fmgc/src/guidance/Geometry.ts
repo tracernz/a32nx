@@ -8,6 +8,7 @@ import { Coordinates } from '@fmgc/flightplanning/data/geo';
 import { SegmentType } from '@fmgc/flightplanning/FlightPlanSegment';
 import { Leg } from '@fmgc/guidance/lnav/legs/Leg';
 import { Guidable } from '@fmgc/guidance/Guidable';
+import { XFLeg } from '@fmgc/guidance/lnav/legs/XF';
 import { GuidanceParameters } from './ControlLaws';
 
 export class Geometry {
@@ -41,13 +42,15 @@ export class Geometry {
      * @param activeLegIdx    current active leg index
      * @param activeTransIdx  current active transition index
      */
-    recomputeWithParameters(tas: Knots, gs: Knots, ppos: Coordinates, activeLegIdx: number, activeTransIdx: number) {
+    recomputeWithParameters(tas: Knots, gs: MetresPerSecond, ppos: Coordinates, activeLegIdx: number, activeTransIdx: number) {
         if (DEBUG) {
             console.log(`[FMS/Geometry] Recomputing geometry with current_tas: ${tas}kts`);
             console.time('geometry_recompute');
         }
 
         for (const [index, leg] of this.legs.entries()) {
+            const prevLeg = this.legs.get(index - 1);
+
             const predictWithCurrentSpeed = index === activeLegIdx;
 
             const currentSpeedPredictedTas = Math.max(tas, 150);
@@ -58,29 +61,33 @@ export class Geometry {
                 console.log(`[FMS/Geometry] Predicted leg (${leg.repr}) with tas: ${predictedLegTas}kts`);
             }
 
-            const legInbound = this.transitions.get(index - 1) ?? this.legs.get(index - 1);
-            const legOutbound = this.transitions.get(index) ?? this.legs.get(index + 1);
-            const nextLeg = this.legs.get(index + 1);
+            if (!(prevLeg instanceof XFLeg)) {
+                this.recomputeFloatingPath(index - 1, tas, predictedLegGs, ppos, activeLegIdx, activeTransIdx);
+            } else {
+                const legInbound = this.transitions.get(index - 1) ?? this.legs.get(index - 1);
+                const legOutbound = this.transitions.get(index) ?? this.legs.get(index + 1);
+                const nextLeg = this.legs.get(index + 1);
 
-            // FIXME the order is not necessarily right here
-            // Need to figure out the order we want to recompute those (dependencies)
-            leg.recomputeWithParameters(
-                activeLegIdx === index || activeLegIdx === leg.indexInFullPath,
-                predictedLegTas,
-                predictedLegGs,
-                ppos,
-                legInbound,
-                legOutbound,
-            );
-            // Will this compute the inbound transition of the active leg ? (if prev leg remains)
-            legOutbound?.recomputeWithParameters(
-                activeTransIdx === index || activeTransIdx === leg.indexInFullPath,
-                predictedLegTas,
-                predictedLegGs,
-                ppos,
-                leg,
-                nextLeg,
-            );
+                // FIXME the order is not necessarily right here
+                // Need to figure out the order we want to recompute those (dependencies)
+                leg.recomputeWithParameters(
+                    activeLegIdx === index || activeLegIdx === leg.indexInFullPath,
+                    predictedLegTas,
+                    predictedLegGs,
+                    ppos,
+                    legInbound,
+                    legOutbound,
+                );
+                // Will this compute the inbound transition of the active leg ? (if prev leg remains)
+                legOutbound?.recomputeWithParameters(
+                    activeTransIdx === index || activeTransIdx === leg.indexInFullPath,
+                    predictedLegTas,
+                    predictedLegGs,
+                    ppos,
+                    leg,
+                    nextLeg,
+                );
+            }
         }
 
         if (DEBUG) {
@@ -88,6 +95,37 @@ export class Geometry {
         }
 
         this.isComputed = true;
+    }
+
+    recomputeFloatingPath(fromIndex: number, tas: Knots, gs: MetresPerSecond, ppos: Coordinates, activeLegIdx: number, activeTransIdx: number): void {
+        let firstXFLegIndex;
+        for (let i = fromIndex; i > 0; i--) {
+            const leg = this.legs.get(i);
+
+            if (leg instanceof XFLeg) {
+                firstXFLegIndex = i;
+            }
+        }
+
+        // Compute all non-XF legs and their transitions after this
+        for (let i = firstXFLegIndex; i < this.legs.size; i++) {
+            const leg = this.legs.get(i);
+
+            const inboundGuidable = this.transitions.get(i - 1) ?? this.legs.get(i - 1);
+            const inboundGuidableInboundGuidable = inboundGuidable instanceof Transition ? this.legs.get(i - 1) : (this.transitions.get(i - 2) ?? this.legs.get(i - 2));
+            const outboundGuidable = this.transitions.get(i) ?? this.legs.get(i + 1);
+
+            inboundGuidable?.recomputeWithParameters(
+                inboundGuidable instanceof Transition ? activeTransIdx === i : activeLegIdx === i,
+                tas,
+                gs,
+                ppos,
+                inboundGuidableInboundGuidable,
+                leg,
+            );
+
+            leg.recomputeWithParameters(activeLegIdx === i, tas, gs, ppos, inboundGuidable, outboundGuidable);
+        }
     }
 
     static getLegPredictedTas(leg: Leg) {

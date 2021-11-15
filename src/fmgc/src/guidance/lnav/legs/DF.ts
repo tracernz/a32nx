@@ -2,11 +2,12 @@ import { AltitudeConstraint, SpeedConstraint } from '@fmgc/guidance/lnav/legs/in
 import { Coordinates } from '@fmgc/flightplanning/data/geo';
 import { Guidable } from '@fmgc/guidance/Guidable';
 import { SegmentType } from '@fmgc/flightplanning/FlightPlanSegment';
-import { Leg } from '@fmgc/guidance/lnav/legs/Leg';
 import { GuidanceParameters } from '@fmgc/guidance/ControlLaws';
 import { Geo } from '@fmgc/utils/Geo';
+import { Type1Transition } from '@fmgc/guidance/lnav/transitions';
+import { XFLeg } from '@fmgc/guidance/lnav/legs/XF';
 
-export class DFLeg extends Leg {
+export class DFLeg extends XFLeg {
     constructor(
         public fix: WayPoint,
         segment: SegmentType,
@@ -16,23 +17,27 @@ export class DFLeg extends Leg {
 
         this.segment = segment;
         this.indexInFullPath = indexInFullPath;
-
-        this.terminator = this.fix.infos.coordinates;
     }
 
     start: Coordinates;
 
-    private readonly terminator: Coordinates | undefined;
-
     getTerminator(): Coordinates | undefined {
-        return this.terminator;
+        if (this.outboundGuidable instanceof Type1Transition) {
+            return this.outboundGuidable.getTurningPoints()[0];
+        }
+
+        return this.fix.infos.coordinates;
     }
 
     private inboundGuidable: Guidable | undefined;
 
-    recomputeWithParameters(_isActive: boolean, _tas: Knots, _gs: Knots, _ppos: Coordinates, previousGuidable: Guidable, _nextGuidable: Guidable) {
+    private outboundGuidable: Guidable | undefined;
+
+    recomputeWithParameters(_isActive: boolean, _tas: Knots, _gs: Knots, _ppos: Coordinates, previousGuidable: Guidable, nextGuidable: Guidable) {
         // We don't really do anything here
         this.inboundGuidable = previousGuidable;
+        this.outboundGuidable = nextGuidable;
+
         // FIXME terminator should be start of next guidable
 
         this.isComputed = true;

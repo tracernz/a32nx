@@ -11,10 +11,11 @@ import { Constants } from '@shared/Constants';
 import { DFLeg } from '../legs/DF';
 import { arcDistanceToGo } from '../CommonGeometry';
 
-export type Type4PreviousLeg = CALeg | /* CDLeg | CFLeg | CILeg | CRLeg | DFLeg | FALeg | FMLeg | HALeg | HFLeg | HMLeg */ TFLeg | /* VALeg | VILeg | VDLeg | */ VMLeg; /* | VRLeg */
+export type Type4PreviousLeg = CALeg | /* CDLeg | CFLeg | CILeg | CRLeg | */ DFLeg | /* FALeg | FMLeg | HALeg | HFLeg | HMLeg */ TFLeg | /* VALeg | VILeg | VDLeg | */ VMLeg; /* | VRLeg */
 export type Type4NextLeg = DFLeg /* | FALeg | FMLeg */
 
 const mod = (x: number, n: number) => x - Math.floor(x / n) * n;
+const tan = (input: Degrees) => Math.tan(input * (Math.PI / 180));
 const acos = (input: Degrees) => Math.acos(input) * (180 / Math.PI);
 
 /**
@@ -89,6 +90,8 @@ export class Type4Transition extends Transition {
         // FIXME fix for FX legs
         const nextFix = this.nextLeg.fix.infos.coordinates;
 
+        this.radius = gs ** 2 / (Constants.G * tan(GuidanceConstants.maxRollAngle)) / 6080.2;
+
         let trackChange = MathUtils.diffAngle(this.previousLeg.bearing, Geo.getGreatCircleBearing(this.previousLeg.getTerminator(), nextFix));
         if (Math.abs(trackChange) < 3) {
             this.revertedTransition = null;
@@ -112,6 +115,11 @@ export class Type4Transition extends Transition {
                 this.hasArc = false;
                 this.lineStartPoint = termFix;
                 this.lineEndPoint = termFix;
+                this.terminator = this.lineEndPoint;
+
+                this.isComputed = true;
+
+                return;
             }
 
             // TODO: delayed turn, recalc RAD
@@ -135,6 +143,10 @@ export class Type4Transition extends Transition {
         this.arcCentrePoint = turnCentre;
         this.arcEndPoint = ftp;
         this.arcSweepAngle = trackChange;
+
+        this.terminator = this.arcEndPoint;
+
+        this.isComputed = true;
     }
 
     get isCircularArc(): boolean {

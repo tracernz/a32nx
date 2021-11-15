@@ -675,6 +675,12 @@ function drawTransition(mapParams: MapParameters, transition: Transition): strin
 
     if (transition instanceof Type4Transition) {
         if (transition.hasArc) {
+            if (DEBUG) {
+                path.push(...drawDebugPoint(mapParams, itp));
+                path.push(...drawDebugPoint(mapParams, transition.arcCentrePoint));
+                path.push(...drawDebugPoint(mapParams, ftp));
+            }
+
             path.push(...drawArc(
                 mapParams,
                 itp,
@@ -738,6 +744,25 @@ function drawLine(mapParams: MapParameters, start: Coordinates, end: Coordinates
     y = MathUtils.fastToFixed(toY, 1);
 
     path.push(`L ${x} ${y}`);
+
+    return path;
+}
+
+function drawDebugPoint(mapParams: MapParameters, point: Coordinates): string[] {
+    const path: string[] = [];
+
+    // Move to point
+    const [pX, pY] = mapParams.coordinatesToXYy(point);
+    const x = MathUtils.fastToFixed(pX, 1);
+    const y = MathUtils.fastToFixed(pY, 1);
+
+    path.push(`M ${x} ${y}`);
+
+    // Draw cross
+    path.push('m 0 -10');
+    path.push('v 20');
+    path.push('m -10 -10');
+    path.push('h 20');
 
     return path;
 }

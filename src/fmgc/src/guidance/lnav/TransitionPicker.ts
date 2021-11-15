@@ -13,11 +13,11 @@ export class TransitionPicker {
         if (from instanceof CALeg) {
             return TransitionPicker.fromCA(from, to);
         }
-        if (from instanceof TFLeg) {
-            return TransitionPicker.fromTF(from, to);
-        }
         if (from instanceof DFLeg) {
             return TransitionPicker.fromDF(from, to);
+        }
+        if (from instanceof TFLeg) {
+            return TransitionPicker.fromTF(from, to);
         }
         if (from instanceof VMLeg) {
             return TransitionPicker.fromVM(from, to);
@@ -30,7 +30,10 @@ export class TransitionPicker {
         return null;
     }
 
-    private static fromTF(from: TFLeg, to: Leg): Transition | null {
+    private static fromDF(from: DFLeg, to: Leg): Transition | null {
+        if (to instanceof DFLeg) {
+            return new Type4Transition(from, to);
+        }
         if (to instanceof TFLeg) {
             return new Type1Transition(from, to);
         }
@@ -44,7 +47,10 @@ export class TransitionPicker {
         return null;
     }
 
-    private static fromDF(from: DFLeg, to: Leg): Transition | null {
+    private static fromTF(from: TFLeg, to: Leg): Transition | null {
+        if (to instanceof DFLeg) {
+            return new Type4Transition(from, to);
+        }
         if (to instanceof TFLeg) {
             return new Type1Transition(from, to);
         }

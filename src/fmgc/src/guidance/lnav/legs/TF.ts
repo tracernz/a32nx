@@ -11,11 +11,12 @@ import { GeoMath } from '@fmgc/flightplanning/GeoMath';
 import { WaypointConstraintType } from '@fmgc/flightplanning/FlightPlanManager';
 import { Coordinates } from '@fmgc/flightplanning/data/geo';
 import { Type1Transition } from '@fmgc/guidance/lnav/transitions/Type1';
-import { Leg } from '@fmgc/guidance/lnav/legs/Leg';
 import { Guidable } from '@fmgc/guidance/Guidable';
 import { Constants } from '@shared/Constants';
+import { XFLeg } from '@fmgc/guidance/lnav/legs/XF';
+import { Geo } from '@fmgc/utils/Geo';
 
-export class TFLeg extends Leg {
+export class TFLeg extends XFLeg {
     public from: WayPoint;
 
     public to: WayPoint;
@@ -28,13 +29,20 @@ export class TFLeg extends Leg {
         super();
         this.from = from;
         this.to = to;
+        this.fix = to;
         this.mDistance = Avionics.Utils.computeGreatCircleDistance(this.from.infos.coordinates, this.to.infos.coordinates);
         this.segment = segment;
         this.indexInFullPath = indexInFullPath;
         this.constraintType = to.constraintType;
     }
 
+    private previousGudiable: Guidable;
+
     private nextGuidable: Guidable;
+
+    get bearing(): DegreesTrue {
+        return Geo.getGreatCircleBearing(this.from.infos.coordinates, this.to.infos.coordinates);
+    }
 
     getTerminator(): Coordinates | undefined {
         if (this.nextGuidable instanceof Type1Transition) {
@@ -44,7 +52,8 @@ export class TFLeg extends Leg {
         return this.to.infos.coordinates;
     }
 
-    recomputeWithParameters(_isActive: boolean, _tas: Knots, _gs: Knots, _ppos: Coordinates, _previousGuidable: Guidable, nextGuidable: Guidable) {
+    recomputeWithParameters(_isActive: boolean, _tas: Knots, _gs: Knots, _ppos: Coordinates, previousGuidable: Guidable, nextGuidable: Guidable) {
+        this.previousGudiable = previousGuidable;
         this.nextGuidable = nextGuidable;
 
         this.isComputed = true;
@@ -52,13 +61,6 @@ export class TFLeg extends Leg {
 
     get isCircularArc(): boolean {
         return false;
-    }
-
-    get bearing(): Degrees {
-        return Avionics.Utils.computeGreatCircleHeading(
-            this.from.infos.coordinates,
-            this.to.infos.coordinates,
-        );
     }
 
     get distance(): NauticalMiles {
