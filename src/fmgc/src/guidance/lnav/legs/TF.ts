@@ -40,7 +40,11 @@ export class TFLeg extends XFLeg {
 
     private nextGuidable: Guidable;
 
-    get bearing(): DegreesTrue {
+    get inboundCourse(): DegreesTrue {
+        return Geo.getGreatCircleBearing(this.from.infos.coordinates, this.to.infos.coordinates);
+    }
+
+    get outboundCourse(): DegreesTrue {
         return Geo.getGreatCircleBearing(this.from.infos.coordinates, this.to.infos.coordinates);
     }
 
@@ -217,7 +221,7 @@ export class TFLeg extends XFLeg {
      */
     getAircraftToLegBearing(ppos: LatLongData): number {
         const aircraftToTerminationBearing = Avionics.Utils.computeGreatCircleHeading(ppos, this.to.infos.coordinates);
-        const aircraftLegBearing = MathUtils.smallCrossingAngle(this.bearing, aircraftToTerminationBearing);
+        const aircraftLegBearing = MathUtils.smallCrossingAngle(this.outboundCourse, aircraftToTerminationBearing);
 
         return aircraftLegBearing;
     }
@@ -228,7 +232,7 @@ export class TFLeg extends XFLeg {
 
     isAbeam(ppos: LatLongAlt): boolean {
         const bearingAC = Avionics.Utils.computeGreatCircleHeading(this.from.infos.coordinates, ppos);
-        const headingAC = Math.abs(MathUtils.diffAngle(this.bearing, bearingAC));
+        const headingAC = Math.abs(MathUtils.diffAngle(this.inboundCourse, bearingAC));
         if (headingAC > 90) {
             // if we're even not abeam of the starting point
             return false;

@@ -10,7 +10,9 @@ export abstract class Leg extends Guidable {
 
     abstract get isCircularArc(): boolean;
 
-    abstract get bearing(): Degrees | undefined;
+    abstract get inboundCourse(): Degrees | undefined;
+
+    abstract get outboundCourse(): Degrees | undefined;
 
     abstract get distance(): NauticalMiles | undefined;
 

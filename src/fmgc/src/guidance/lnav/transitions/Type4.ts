@@ -46,7 +46,7 @@ export class Type4Transition extends Transition {
     }
 
     get deltaTrack(): Degrees {
-        return MathUtils.fastToFixedNum(MathUtils.diffAngle(this.previousLeg.bearing, this.nextLeg.bearing), 1);
+        return MathUtils.fastToFixedNum(MathUtils.diffAngle(this.previousLeg.outboundCourse, this.nextLeg.inboundCourse), 1);
     }
 
     get courseVariation(): Degrees {
@@ -92,7 +92,7 @@ export class Type4Transition extends Transition {
 
         this.radius = gs ** 2 / (Constants.G * tan(GuidanceConstants.maxRollAngle)) / 6080.2;
 
-        let trackChange = MathUtils.diffAngle(this.previousLeg.bearing, Geo.getGreatCircleBearing(this.previousLeg.getTerminator(), nextFix));
+        let trackChange = MathUtils.diffAngle(this.previousLeg.outboundCourse, Geo.getGreatCircleBearing(this.previousLeg.getTerminator(), nextFix));
         if (Math.abs(trackChange) < 3) {
             this.revertedTransition = null;
         }
@@ -103,13 +103,13 @@ export class Type4Transition extends Transition {
         const rollAnticipationDistance = this.rollAnticipationDistance(gs, rollAngleChange);
 
         const itp = rollAnticipationDistance < 0.05 ? termFix
-            : Geo.computeDestinationPoint(termFix, rollAnticipationDistance, this.previousLeg.bearing);
-        const turnCentre = Geo.computeDestinationPoint(itp, this.radius, this.previousLeg.bearing + turnDirection * 90);
+            : Geo.computeDestinationPoint(termFix, rollAnticipationDistance, this.previousLeg.outboundCourse);
+        const turnCentre = Geo.computeDestinationPoint(itp, this.radius, this.previousLeg.outboundCourse + turnDirection * 90);
 
         const distanceToFix = Geo.getDistance(turnCentre, nextFix);
 
         if (distanceToFix < this.radius) {
-            if (Math.abs(MathUtils.diffAngle(this.previousLeg.bearing, Geo.getGreatCircleBearing(termFix, nextFix))) < 60) {
+            if (Math.abs(MathUtils.diffAngle(this.previousLeg.outboundCourse, Geo.getGreatCircleBearing(termFix, nextFix))) < 60) {
                 this.revertedTransition = null;
 
                 this.hasArc = false;
@@ -134,7 +134,7 @@ export class Type4Transition extends Transition {
 
         trackChange = MathUtils.diffAngle(a2, MathUtils.diffAngle(turnDirection * a5, a3));
 
-        const ftp = Geo.computeDestinationPoint(turnCentre, this.radius, this.previousLeg.bearing + trackChange - 90 * turnDirection);
+        const ftp = Geo.computeDestinationPoint(turnCentre, this.radius, this.previousLeg.outboundCourse + trackChange - 90 * turnDirection);
 
         this.lineStartPoint = this.previousLeg.getTerminator();
         this.lineEndPoint = itp;
@@ -157,10 +157,10 @@ export class Type4Transition extends Transition {
         const [inbound, outbound] = this.getTurningPoints();
 
         const inBearingAc = Avionics.Utils.computeGreatCircleHeading(inbound, ppos);
-        const inHeadingAc = Math.abs(MathUtils.diffAngle(this.previousLeg.bearing, inBearingAc));
+        const inHeadingAc = Math.abs(MathUtils.diffAngle(this.previousLeg.outboundCourse, inBearingAc));
 
         const outBearingAc = Avionics.Utils.computeGreatCircleHeading(outbound, ppos);
-        const outHeadingAc = Math.abs(MathUtils.diffAngle(this.nextLeg.bearing, outBearingAc));
+        const outHeadingAc = Math.abs(MathUtils.diffAngle(this.nextLeg.inboundCourse, outBearingAc));
 
         return inHeadingAc <= 90 && outHeadingAc >= 90;
     }

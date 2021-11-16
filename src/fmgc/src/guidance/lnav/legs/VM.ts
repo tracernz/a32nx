@@ -34,7 +34,11 @@ export class VMLeg extends Leg {
         return false;
     }
 
-    get bearing(): Degrees {
+    get inboundCourse(): Degrees {
+        return this.initialCourse;
+    }
+
+    get outboundCourse(): Degrees {
         return this.initialCourse;
     }
 
@@ -80,6 +84,6 @@ export class VMLeg extends Leg {
     }
 
     get repr(): string {
-        return `VM(${this.bearing.toFixed(1)}°)`;
+        return `VM(${this.heading.toFixed(1)}°)`;
     }
 }

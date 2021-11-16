@@ -46,7 +46,7 @@ export class Type3Transition extends Transition {
     }
 
     get deltaTrack(): Degrees {
-        return MathUtils.fastToFixedNum(MathUtils.diffAngle(this.previousLeg.bearing, this.nextLeg.bearing), 1);
+        return MathUtils.fastToFixedNum(MathUtils.diffAngle(this.previousLeg.outboundCourse, this.nextLeg.inboundCourse), 1);
     }
 
     get courseVariation(): Degrees {
@@ -89,8 +89,8 @@ export class Type3Transition extends Transition {
 
         // Course change and delta track?
         const radius = (gs ** 2 / (Constants.G * tan(Math.abs(GuidanceConstants.maxRollAngle)))) / 6080.2;
-        const turnCenter = Geo.computeDestinationPoint(initialTurningPoint, radius, this.previousLeg.bearing + 90 * Math.sign(courseChange));
-        const finalTurningPoint = Geo.computeDestinationPoint(turnCenter, radius, this.previousLeg.bearing - 90 * Math.sign(courseChange) + courseChange);
+        const turnCenter = Geo.computeDestinationPoint(initialTurningPoint, radius, this.previousLeg.outboundCourse + 90 * Math.sign(courseChange));
+        const finalTurningPoint = Geo.computeDestinationPoint(turnCenter, radius, this.previousLeg.outboundCourse - 90 * Math.sign(courseChange) + courseChange);
 
         this.radius = radius;
 
@@ -133,10 +133,10 @@ export class Type3Transition extends Transition {
         const [inbound, outbound] = this.getTurningPoints();
 
         const inBearingAc = Avionics.Utils.computeGreatCircleHeading(inbound, ppos);
-        const inHeadingAc = Math.abs(MathUtils.diffAngle(this.previousLeg.bearing, inBearingAc));
+        const inHeadingAc = Math.abs(MathUtils.diffAngle(this.previousLeg.outboundCourse, inBearingAc));
 
         const outBearingAc = Avionics.Utils.computeGreatCircleHeading(outbound, ppos);
-        const outHeadingAc = Math.abs(MathUtils.diffAngle(this.nextLeg.bearing, outBearingAc));
+        const outHeadingAc = Math.abs(MathUtils.diffAngle(this.nextLeg.inboundCourse, outBearingAc));
 
         return inHeadingAc <= 90 && outHeadingAc >= 90;
     }

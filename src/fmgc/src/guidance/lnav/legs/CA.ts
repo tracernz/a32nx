@@ -51,7 +51,11 @@ export class CALeg extends Leg {
         return undefined;
     }
 
-    get bearing(): Degrees {
+    get inboundCourse(): Degrees {
+        return this.course;
+    }
+
+    get outboundCourse(): Degrees {
         return this.course;
     }
 

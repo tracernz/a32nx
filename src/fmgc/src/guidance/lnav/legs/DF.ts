@@ -47,7 +47,11 @@ export class DFLeg extends XFLeg {
         return undefined;
     }
 
-    get bearing(): Degrees {
+    get inboundCourse(): Degrees {
+        return Geo.getGreatCircleBearing(this.inboundGuidable.getTerminator(), this.fix.infos.coordinates);
+    }
+
+    get outboundCourse(): Degrees {
         return Geo.getGreatCircleBearing(this.inboundGuidable.getTerminator(), this.fix.infos.coordinates);
     }
 

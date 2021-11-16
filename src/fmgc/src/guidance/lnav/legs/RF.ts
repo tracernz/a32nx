@@ -8,7 +8,7 @@ import {
 import { SegmentType } from '@fmgc/wtsdk';
 import { Coordinates } from '@fmgc/flightplanning/data/geo';
 import { Leg } from '@fmgc/guidance/lnav/legs/Leg';
-import { arcDistanceToGo, pointOnArc } from '../CommonGeometry';
+import { arcDistanceToGo, arcGuidance, pointOnArc } from '@fmgc/guidance/lnav/CommonGeometry';
 
 export class RFLeg extends Leg {
     // termination fix of the previous leg
@@ -65,13 +65,20 @@ export class RFLeg extends Leg {
 
     terminator: Coordinates | undefined;
 
+    getTerminator(): Coordinates | undefined {
+        return this.terminator;
+    }
+
     get isCircularArc(): boolean {
         return true;
     }
 
-    // this is used for transitions... which are not allowed for RF
-    public get bearing(): Degrees {
-        return -1;
+    get inboundCourse(): Degrees {
+        return Avionics.Utils.clampAngle(Avionics.Utils.computeGreatCircleHeading(this.center, this.from.infos.coordinates) + (this.clockwise ? 90 : -90));
+    }
+
+    get outboundCourse(): Degrees {
+        return Avionics.Utils.clampAngle(Avionics.Utils.computeGreatCircleHeading(this.center, this.to.infos.coordinates) + (this.clockwise ? 90 : -90));
     }
 
     public get distance(): NauticalMiles {

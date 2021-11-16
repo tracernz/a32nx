@@ -49,7 +49,7 @@ export class Type1Transition extends Transition {
             return;
         }
 
-        const courseChange = mod(this.nextLeg.bearing - this.previousLeg.bearing + 180, 360) - 180;
+        const courseChange = mod(this.nextLeg.inboundCourse - this.previousLeg.outboundCourse + 180, 360) - 180;
 
         // Always at least 5 degrees turn
         const minBankAngle = 5;
@@ -86,8 +86,8 @@ export class Type1Transition extends Transition {
     }
 
     get angle(): Degrees {
-        const bearingFrom = this.previousLeg.bearing;
-        const bearingTo = this.nextLeg.bearing;
+        const bearingFrom = this.previousLeg.outboundCourse;
+        const bearingTo = this.nextLeg.inboundCourse;
         return Math.abs(MathUtils.diffAngle(bearingFrom, bearingTo));
     }
 
@@ -101,7 +101,7 @@ export class Type1Transition extends Transition {
 
         const { lat, long } = this.previousLeg.getTerminator();
 
-        const inboundReciprocal = mod(this.previousLeg.bearing + 180, 360);
+        const inboundReciprocal = mod(this.previousLeg.outboundCourse + 180, 360);
 
         return Avionics.Utils.bearingDistanceToCoordinates(
             mod(inboundReciprocal + (this.clockwise ? -bisecting : bisecting), 360),
@@ -115,10 +115,10 @@ export class Type1Transition extends Transition {
         const [inbound, outbound] = this.getTurningPoints();
 
         const inBearingAc = Avionics.Utils.computeGreatCircleHeading(inbound, ppos);
-        const inHeadingAc = Math.abs(MathUtils.diffAngle(this.previousLeg.bearing, inBearingAc));
+        const inHeadingAc = Math.abs(MathUtils.diffAngle(this.previousLeg.outboundCourse, inBearingAc));
 
         const outBearingAc = Avionics.Utils.computeGreatCircleHeading(outbound, ppos);
-        const outHeadingAc = Math.abs(MathUtils.diffAngle(this.nextLeg.bearing, outBearingAc));
+        const outHeadingAc = Math.abs(MathUtils.diffAngle(this.nextLeg.inboundCourse, outBearingAc));
 
         return inHeadingAc <= 90 && outHeadingAc >= 90;
     }
@@ -144,16 +144,16 @@ export class Type1Transition extends Transition {
         const bisecting = (180 - this.angle) / 2;
         const distanceTurningPointToWaypoint = this.radius / Math.tan(bisecting * Avionics.Utils.DEG2RAD);
 
-        const { lat, long } = this.previousLeg.fix;
+        const { lat, long } = this.previousLeg.fix.infos.coordinates;
 
         const inbound = Avionics.Utils.bearingDistanceToCoordinates(
-            mod(this.previousLeg.bearing + 180, 360),
+            mod(this.previousLeg.outboundCourse + 180, 360),
             distanceTurningPointToWaypoint,
             lat,
             long,
         );
         const outbound = Avionics.Utils.bearingDistanceToCoordinates(
-            this.nextLeg.bearing,
+            this.nextLeg.inboundCourse,
             distanceTurningPointToWaypoint,
             lat,
             long,

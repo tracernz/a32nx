@@ -32,7 +32,11 @@ export class IFLeg extends Leg {
         return undefined;
     }
 
-    get bearing(): Degrees | undefined {
+    get inboundCourse(): Degrees | undefined {
+        return undefined;
+    }
+
+    get outboundCourse(): Degrees | undefined {
         return undefined;
     }
 
