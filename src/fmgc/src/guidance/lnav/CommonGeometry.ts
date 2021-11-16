@@ -1,4 +1,5 @@
 import { Coordinates } from '@fmgc/flightplanning/data/geo';
+import { ControlLaw, GuidanceParameters } from '@fmgc/guidance/ControlLaws';
 import { MathUtils } from '@shared/MathUtils';
 import { Constants } from '@shared/Constants';
 import { Convert } from '@shared/Convert';
@@ -6,16 +7,16 @@ import { Convert } from '@shared/Convert';
 /**
  * Compute the remaining distance around an arc
  * This is only valid once past the itp
- * @param ppos
- * @param itp
- * @param centrePoint
- * @param sweepAngle
+ * @param ppos       current aircraft position
+ * @param itp        current aircraft track
+ * @param centreFix  centre of the arc
+ * @param sweepAngle angle swept around the arc, +ve for clockwise
  * @returns
  */
-export function arcDistanceToGo(ppos: Coordinates, itp: Coordinates, centrePoint: Coordinates, sweepAngle: Degrees) {
-    const itpBearing = Avionics.Utils.computeGreatCircleHeading(centrePoint, itp);
-    const pposBearing = Avionics.Utils.computeGreatCircleHeading(centrePoint, ppos);
-    const radius = Avionics.Utils.computeGreatCircleDistance(centrePoint, itp);
+export function arcDistanceToGo(ppos: Coordinates, itp: Coordinates, centreFix: Coordinates, sweepAngle: Degrees) {
+    const itpBearing = Avionics.Utils.computeGreatCircleHeading(centreFix, itp);
+    const pposBearing = Avionics.Utils.computeGreatCircleHeading(centreFix, ppos);
+    const radius = Avionics.Utils.computeGreatCircleDistance(centreFix, itp);
 
     const refFrameOffset = Avionics.Utils.diffAngle(0, itpBearing);
     const pposAngle = sweepAngle < 0 ? Avionics.Utils.clampAngle(refFrameOffset - pposBearing) : Avionics.Utils.clampAngle(pposBearing - refFrameOffset);
@@ -25,6 +26,43 @@ export function arcDistanceToGo(ppos: Coordinates, itp: Coordinates, centrePoint
     }
 
     return radius * Math.PI * (Math.abs(sweepAngle) - pposAngle) / 180;
+}
+
+/**
+ * Compute guidance parameters for an arc path
+ * @param ppos       current aircraft position
+ * @param trueTrack  current aircraft track
+ * @param itp        initial turning point for the arc
+ * @param centreFix  centre of the arc
+ * @param sweepAngle angle swept around the arc, +ve for clockwise
+ * @returns {GuidanceParameters} lateral path law params
+ */
+export function arcGuidance(ppos: Coordinates, trueTrack: Degrees, itp: Coordinates, centreFix: Coordinates, sweepAngle: Degrees): GuidanceParameters {
+    const bearingPpos = Avionics.Utils.computeGreatCircleHeading(
+        centreFix,
+        ppos,
+    );
+
+    const desiredTrack = sweepAngle > 0 ? Avionics.Utils.clampAngle(bearingPpos + 90) : Avionics.Utils.clampAngle(bearingPpos - 90);
+    const trackAngleError = Avionics.Utils.diffAngle(trueTrack, desiredTrack);
+
+    const radius = Avionics.Utils.computeGreatCircleDistance(centreFix, itp);
+    const distanceFromCenter = Avionics.Utils.computeGreatCircleDistance(centreFix, ppos);
+
+    const crossTrackError = sweepAngle > 0
+        ? distanceFromCenter - radius
+        : radius - distanceFromCenter;
+
+    const groundSpeed = SimVar.GetSimVarValue('GPS GROUND SPEED', 'meters per second');
+    const radiusInMetre = radius * 1852;
+    const phiCommand = (sweepAngle > 0 ? 1 : -1) * Math.atan((groundSpeed * groundSpeed) / (radiusInMetre * 9.81)) * (180 / Math.PI);
+
+    return {
+        law: ControlLaw.LATERAL_PATH,
+        trackAngleError,
+        crossTrackError,
+        phiCommand,
+    };
 }
 
 /**

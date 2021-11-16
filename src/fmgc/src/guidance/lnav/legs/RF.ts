@@ -96,34 +96,8 @@ export class RFLeg extends Leg {
 
     // basically straight from type 1 transition... willl need refinement
     getGuidanceParameters(ppos: LatLongAlt, trueTrack: number): GuidanceParameters | null {
-        const { center } = this;
-
-        const bearingPpos = Avionics.Utils.computeGreatCircleHeading(
-            center,
-            ppos,
-        );
-
-        const desiredTrack = this.clockwise ? Avionics.Utils.clampAngle(bearingPpos + 90) : Avionics.Utils.clampAngle(bearingPpos - 90);
-        const trackAngleError = Avionics.Utils.diffAngle(trueTrack, desiredTrack);
-
-        const distanceFromCenter = Avionics.Utils.computeGreatCircleDistance(
-            center,
-            ppos,
-        );
-        const crossTrackError = this.clockwise
-            ? distanceFromCenter - this.radius
-            : this.radius - distanceFromCenter;
-
-        const groundSpeed = SimVar.GetSimVarValue('GPS GROUND SPEED', 'meters per second');
-        const radiusInMeter = this.radius * 1852;
-        const phiCommand = (this.clockwise ? 1 : -1) * Math.atan((groundSpeed * groundSpeed) / (radiusInMeter * 9.81)) * (180 / Math.PI);
-
-        return {
-            law: ControlLaw.LATERAL_PATH,
-            trackAngleError,
-            crossTrackError,
-            phiCommand,
-        };
+        // FIXME should be defined in terms of to fix
+        return arcGuidance(ppos, trueTrack, this.from.infos.coordinates, this.center, this.clockwise ? this.angle : -this.angle);
     }
 
     getNominalRollAngle(gs): Degrees {
@@ -136,7 +110,7 @@ export class RFLeg extends Leg {
      * @param ppos {LatLong} the current position of the aircraft
      */
     getDistanceToGo(ppos: LatLongData): NauticalMiles {
-        // TODO geometry should be defined in terms of to...
+        // FIXME geometry should be defined in terms of to...
         return arcDistanceToGo(ppos, this.from.infos.coordinates, this.center, this.clockwise ? this.angle : -this.angle);
     }
 
