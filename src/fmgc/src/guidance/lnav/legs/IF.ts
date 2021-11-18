@@ -2,10 +2,11 @@ import { AltitudeConstraint, SpeedConstraint } from '@fmgc/guidance/lnav/legs/in
 import { Coordinates } from '@fmgc/flightplanning/data/geo';
 import { Guidable } from '@fmgc/guidance/Guidable';
 import { SegmentType } from '@fmgc/flightplanning/FlightPlanSegment';
-import { Leg } from '@fmgc/guidance/lnav/legs/Leg';
 import { GuidanceParameters } from '@fmgc/guidance/ControlLaws';
+import { XFLeg } from '@fmgc/guidance/lnav/legs/XF';
+import { PathVector } from '@fmgc/guidance/lnav/PathVector';
 
-export class IFLeg extends Leg {
+export class IFLeg extends XFLeg {
     constructor(
         public fix: WayPoint,
         segment: SegmentType,
@@ -15,6 +16,10 @@ export class IFLeg extends Leg {
 
         this.segment = segment;
         this.indexInFullPath = indexInFullPath;
+    }
+
+    get predictedPath(): PathVector[] | undefined {
+        return [];
     }
 
     getPathStartPoint(): Coordinates | undefined {
@@ -53,7 +58,7 @@ export class IFLeg extends Leg {
         return undefined;
     }
 
-    getNominalRollAngle(gs): Degrees | undefined {
+    getNominalRollAngle(_gs): Degrees | undefined {
         return undefined;
     }
 
