@@ -72,14 +72,16 @@ export class RFLeg extends Leg {
                 sweepAngle: this.clockwise ? this.angle : -this.angle,
             }
         ];
+
+        this.isComputed = true;
     }
 
     getPathStartPoint(): Coordinates | undefined {
-        return this.to.infos.coordinates;
+        return this.from.infos.coordinates;
     }
 
     getPathEndPoint(): Coordinates | undefined {
-        return this.from.infos.coordinates;
+        return this.to.infos.coordinates;
     }
 
     get predictedPath(): PathVector[] {

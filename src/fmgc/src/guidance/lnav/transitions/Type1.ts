@@ -150,6 +150,9 @@ export class Type1Transition extends Transition {
      * Returns the distance between the inbound turning point and the reference fix
      */
     get unflownDistance() {
+        if (!this.getTurningPoints()) {
+            return 0;
+        }
         return Avionics.Utils.computeGreatCircleDistance(
             this.previousLeg.getPathEndPoint(),
             this.getTurningPoints()[0],
@@ -197,7 +200,7 @@ export class Type1Transition extends Transition {
         return [inbound, outbound];
     }
 
-    getTurningPoints(): [LatLongAlt, LatLongAlt] {
+    getTurningPoints(): [LatLongAlt, LatLongAlt] | undefined {
         return this.turningPoints;
     }
 

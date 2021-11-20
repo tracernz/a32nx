@@ -78,15 +78,17 @@ export class Geometry {
                     legInbound,
                     legOutbound,
                 );
+
+                // FIXME, this causes legs to be recomputed with themselves as nextLeg => borked predicted path
                 // Will this compute the inbound transition of the active leg ? (if prev leg remains)
-                legOutbound?.recomputeWithParameters(
+                /*legOutbound?.recomputeWithParameters(
                     activeTransIdx === index || activeTransIdx === leg.indexInFullPath,
                     predictedLegTas,
                     predictedLegGs,
                     ppos,
                     leg,
                     nextLeg,
-                );
+                );*/
             }
         }
 
@@ -171,8 +173,8 @@ export class Geometry {
 
             const rad = this.getGuidableRollAnticipationDistance(gs, fromTransition, activeLeg);
             const dtg = fromTransition.getDistanceToGo(ppos);
-            SimVar.SetSimVarValue('L:A32NX_FG_RAD', 'number', rad);
-            SimVar.SetSimVarValue('L:A32NX_FG_DTG', 'number', dtg);
+            SimVar.SetSimVarValue('L:A32NX_FG_RAD', 'number', rad ?? 0);
+            SimVar.SetSimVarValue('L:A32NX_FG_DTG', 'number', dtg ?? 0);
             if (dtg <= rad) {
                 if (DEBUG) {
                     radGudiable = activeLeg;
@@ -181,7 +183,7 @@ export class Geometry {
 
                 const params = fromTransition.getGuidanceParameters(ppos, trueTrack);
                 const toParams = activeLeg.getGuidanceParameters(ppos, trueTrack);
-                params.phiCommand = toParams.phiCommand ?? 0;
+                params.phiCommand = toParams?.phiCommand ?? 0;
 
                 paramsToReturn = params;
             }
@@ -202,8 +204,8 @@ export class Geometry {
 
                 const rad = this.getGuidableRollAnticipationDistance(gs, toTransition, nextLeg);
                 const dtg = toTransition.getDistanceToGo(ppos);
-                SimVar.SetSimVarValue('L:A32NX_FG_RAD', 'number', rad);
-                SimVar.SetSimVarValue('L:A32NX_FG_DTG', 'number', dtg);
+                SimVar.SetSimVarValue('L:A32NX_FG_RAD', 'number', rad ?? 0);
+                SimVar.SetSimVarValue('L:A32NX_FG_DTG', 'number', dtg ?? 0);
                 if (dtg <= rad) {
                     if (DEBUG) {
                         radGudiable = nextLeg;
@@ -212,7 +214,7 @@ export class Geometry {
 
                     const params = toTransition.getGuidanceParameters(ppos, trueTrack);
                     const toParams = nextLeg.getGuidanceParameters(ppos, trueTrack);
-                    params.phiCommand = toParams.phiCommand ?? 0;
+                    params.phiCommand = toParams?.phiCommand ?? 0;
 
                     paramsToReturn = params;
                 }
@@ -230,8 +232,8 @@ export class Geometry {
                 const unTravelled = Avionics.Utils.computeGreatCircleDistance(itp, activeLeg.getPathEndPoint());
                 const rad = this.getGuidableRollAnticipationDistance(gs, activeLeg, toTransition);
                 const dtg = activeLeg.getDistanceToGo(ppos) - unTravelled;
-                SimVar.SetSimVarValue('L:A32NX_FG_RAD', 'number', rad);
-                SimVar.SetSimVarValue('L:A32NX_FG_DTG', 'number', dtg);
+                SimVar.SetSimVarValue('L:A32NX_FG_RAD', 'number', rad ?? 0);
+                SimVar.SetSimVarValue('L:A32NX_FG_DTG', 'number', dtg ?? 0);
                 if (dtg <= rad) {
                     if (DEBUG) {
                         radGudiable = toTransition;
@@ -240,7 +242,7 @@ export class Geometry {
 
                     const params = activeLeg.getGuidanceParameters(ppos, trueTrack);
                     const toParams = toTransition.getGuidanceParameters(ppos, trueTrack);
-                    params.phiCommand = toParams.phiCommand ?? 0;
+                    params.phiCommand = toParams?.phiCommand ?? 0;
 
                     paramsToReturn = params;
                 }
@@ -249,10 +251,10 @@ export class Geometry {
 
         if (activeLeg) {
             const dtg = activeLeg.getDistanceToGo(ppos);
-            SimVar.SetSimVarValue('L:A32NX_FG_DTG', 'number', dtg);
+            SimVar.SetSimVarValue('L:A32NX_FG_DTG', 'number', dtg ?? 0);
             if (nextLeg) {
                 const rad = this.getGuidableRollAnticipationDistance(gs, activeLeg, nextLeg);
-                SimVar.SetSimVarValue('L:A32NX_FG_RAD', 'number', rad);
+                SimVar.SetSimVarValue('L:A32NX_FG_RAD', 'number', rad ?? 0);
                 if (dtg <= rad) {
                     if (DEBUG) {
                         radGudiable = nextLeg;
@@ -262,7 +264,7 @@ export class Geometry {
                     // console.log(`RAD for next leg ${rad}`);
                     const params = activeLeg.getGuidanceParameters(ppos, trueTrack);
                     const toParams = nextLeg.getGuidanceParameters(ppos, trueTrack);
-                    params.phiCommand = toParams.phiCommand ?? 0;
+                    params.phiCommand = toParams?.phiCommand ?? 0;
 
                     paramsToReturn = params;
                 }

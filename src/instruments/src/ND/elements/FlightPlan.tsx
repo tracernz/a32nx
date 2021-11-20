@@ -89,7 +89,7 @@ export const FlightPlan: FC<FlightPathProps> = memo(({ x = 0, y = 0, symbols, fl
     const [flightPath, setFlightPath] = useState<string>();
 
     useEffect(() => {
-        if (geometry && geometry.isComputed) {
+        if (geometry && geometry.isComputed && mapParams.valid) {
             setFlightPath(makePathFromGeometry(geometry, mapParams));
         }
     });

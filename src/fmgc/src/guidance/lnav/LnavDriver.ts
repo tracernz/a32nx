@@ -195,7 +195,7 @@ export class LnavDriver implements GuidanceComponent {
                 console.error('[FMS/LNAV] Guidance parameters from geometry are null.');
             }
 
-            SimVar.SetSimVarValue('L:A32NX_GPS_WP_DISTANCE', 'nautical miles', dtg);
+            SimVar.SetSimVarValue('L:A32NX_GPS_WP_DISTANCE', 'nautical miles', dtg ?? 0);
 
             if (!this.guidanceController.flightPlanManager.isActiveWaypointAtEnd(false, false, 0) && geometry.shouldSequenceLeg(this.ppos)) {
                 const currentLeg = activeLeg;
