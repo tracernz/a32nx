@@ -565,7 +565,7 @@ const DebugHXLeg: FC<DebugLegProps<HALeg | HFLeg | HMLeg>> = ({ leg, mapParams }
         </>
     );
 };
-//
+
 export type DebugTransitionProps = {
     transition: Transition,
     mapParams: MapParameters,

@@ -104,15 +104,15 @@ export class GuidanceManager {
         }
 
         if (to.additionalData?.legType === LegType.HA) {
-            return GuidanceManager.haLeg(to, segment, activeIndex - 1);
+            return GuidanceManager.haLeg(to, segment, toIndex);
         }
 
         if (to.additionalData?.legType === LegType.HF) {
-            return GuidanceManager.hfLeg(to, segment, activeIndex - 1);
+            return GuidanceManager.hfLeg(to, segment, toIndex);
         }
 
         if (to.additionalData?.legType === LegType.HM) {
-            return GuidanceManager.hmLeg(to, segment, activeIndex - 1);
+            return GuidanceManager.hmLeg(to, segment, toIndex);
         }
 
         if (to.isVectors) {

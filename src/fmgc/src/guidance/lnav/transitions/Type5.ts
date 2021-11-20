@@ -2,9 +2,10 @@
 //  SPDX-License-Identifier: GPL-3.0
 
 import { Transition } from '@fmgc/guidance/lnav/Transition';
+import { DFLeg } from '@fmgc/guidance/lnav/legs/DF';
+import { HALeg, HFLeg, HMLeg, HxLegGuidanceState } from '@fmgc/guidance/lnav/legs/HX';
 import { RFLeg } from '@fmgc/guidance/lnav/legs/RF';
 import { TFLeg } from '@fmgc/guidance/lnav/legs/TF';
-import { HALeg, HFLeg, HMLeg, HxLegGuidanceState } from '@fmgc/guidance/lnav/legs/HX';
 import { Coordinates } from '@fmgc/flightplanning/data/geo';
 import { TurnDirection } from '@fmgc/types/fstypes/FSEnums';
 import { GuidanceParameters, LateralPathGuidance } from '@fmgc/guidance/ControlLaws';
@@ -57,7 +58,7 @@ export class Type5Transition extends Transition {
     private captureInbound = false;
 
     constructor(
-        private previousLeg: /* AFLeg | CFLeg | DFLeg | */ RFLeg | TFLeg,
+        private previousLeg: /* AFLeg | CFLeg |*/ DFLeg | RFLeg | TFLeg,
         private nextLeg: HALeg | HFLeg | HMLeg,
         _predictWithCurrentSpeed: boolean = true, // TODO we don't need this?
     ) {
@@ -183,9 +184,10 @@ export class Type5Transition extends Transition {
 
     public getNominalRollAngle(gs: Knots): Degrees {
         if (this.entry === EntryType.Null) {
-            return 0;
+            return this.nextLeg.getNominalRollAngle(gs);
         }
-        return this.nextLeg.getNominalRollAngle(gs);
+
+        return this.turn1.sweepAngle > 0 ? maxBank(gs /* FIXME tas */, true) : -maxBank(gs /* FIXME tas */, true);
     }
 
     getTurningPoints(): [LatLongAlt, LatLongAlt] {

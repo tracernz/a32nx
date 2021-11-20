@@ -197,19 +197,25 @@ export class LnavDriver implements GuidanceComponent {
 
             SimVar.SetSimVarValue('L:A32NX_GPS_WP_DISTANCE', 'nautical miles', dtg ?? 0);
 
-            if (!this.guidanceController.flightPlanManager.isActiveWaypointAtEnd(false, false, 0) && geometry.shouldSequenceLeg(this.ppos)) {
+            if (this.guidanceController.automaticSequencing && geometry.shouldSequenceLeg(this.ppos)) {
                 const currentLeg = activeLeg;
                 const nextLeg = geometry.legs.get(2);
 
-                // FIXME we should stop relying on discos in the wpt objects, but for now it's fiiiiiine
-                // Hard-coded check for TF leg after the disco for now - only case where we don't wanna
-                // sequence this way is VM
-                if (currentLeg instanceof TFLeg && currentLeg.to.endsInDiscontinuity && nextLeg instanceof TFLeg) {
-                    this.sequenceDiscontinuity(currentLeg);
+                if (nextLeg) {
+                    // FIXME we should stop relying on discos in the wpt objects, but for now it's fiiiiiine
+                    // Hard-coded check for TF leg after the disco for now - only case where we don't wanna
+                    // sequence this way is VM
+                    if (currentLeg instanceof TFLeg && currentLeg.to.endsInDiscontinuity && nextLeg instanceof TFLeg) {
+                        this.sequenceDiscontinuity(currentLeg);
+                        this.guidanceController.automaticSequencing = false;
+                    } else {
+                        this.sequenceLeg(currentLeg);
+                    }
+
+                    this.guidanceController.automaticSequencing = !nextLeg.disableAutomaticSequencing;
                 } else {
-                    this.sequenceLeg(currentLeg);
-                    SimVar.SetSimVarValue('L:A32NX_FG_RAD', 'number', -1);
-                    SimVar.SetSimVarValue('L:A32NX_FG_DTG', 'number', -1);
+                    this.sequenceDiscontinuity(currentLeg);
+                    this.guidanceController.automaticSequencing = false;
                 }
             }
         }

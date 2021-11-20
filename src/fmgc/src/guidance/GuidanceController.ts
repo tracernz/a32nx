@@ -39,6 +39,8 @@ export class GuidanceController {
 
     public currentPseudoWaypoints: PseudoWaypoint[] = [];
 
+    public automaticSequencing: boolean = true;
+
     constructor(flightPlanManager: FlightPlanManager, guidanceManager: GuidanceManager) {
         this.flightPlanManager = flightPlanManager;
         this.guidanceManager = guidanceManager;

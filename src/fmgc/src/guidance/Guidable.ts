@@ -53,5 +53,10 @@ export abstract class Guidable {
      */
     abstract get isCircularArc(): boolean;
 
+    /**
+     * For roll anticipation
+     */
+    abstract getNominalRollAngle(gs): Degrees | undefined;
+
     abstract get repr(): string;
 }

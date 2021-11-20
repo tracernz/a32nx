@@ -18,10 +18,12 @@ export abstract class Leg extends Guidable {
 
     abstract get altitudeConstraint(): AltitudeConstraint | undefined;
 
+    get disableAutomaticSequencing(): boolean {
+        return false;
+    }
+
     /** @inheritDoc */
     recomputeWithParameters(_isActive: boolean, _tas: Knots, _gs: Knots, _ppos: Coordinates, _previousGuidable: Guidable, _nextGuidable: Guidable): void {
         // Default impl.
     }
-
-    abstract getNominalRollAngle(gs): Degrees | undefined;
 }

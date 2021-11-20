@@ -130,7 +130,12 @@ export class Type1Transition extends Transition {
     }
 
     isAbeam(ppos: LatLongData): boolean {
-        const [inbound, outbound] = this.getTurningPoints();
+        const turningPoints = this.getTurningPoints();
+        if (!turningPoints) {
+            return false;
+        }
+
+        const [inbound, outbound] = turningPoints;
 
         const inBearingAc = Avionics.Utils.computeGreatCircleHeading(inbound, ppos);
         const inHeadingAc = Math.abs(MathUtils.diffAngle(this.previousLeg.outboundCourse, inBearingAc));

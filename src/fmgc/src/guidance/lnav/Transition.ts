@@ -12,8 +12,6 @@ export abstract class Transition extends Guidable {
 
     abstract getPseudoWaypointLocation(distanceBeforeTerminator: NauticalMiles): LatLongData | undefined;
 
-    abstract getNominalRollAngle(gs): Degrees;
-
     abstract getDistanceToGo(ppos: LatLongData);
 
     abstract getTurningPoints(): [LatLongData, LatLongData];

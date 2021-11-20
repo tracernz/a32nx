@@ -84,6 +84,10 @@ export class VMLeg extends Leg {
         return true;
     }
 
+    get disableAutomaticSequencing(): boolean {
+        return true;
+    }
+
     get repr(): string {
         return `VM(${this.heading.toFixed(1)}°)`;
     }

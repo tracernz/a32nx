@@ -334,6 +334,10 @@ export class HMLeg extends Leg {
         return this.to.infos.coordinates;
     }
 
+    get disableAutomaticSequencing(): boolean {
+        return true;
+    }
+
     get repr(): string {
         return `HM '${this.to.ident}'`;
     }
@@ -369,6 +373,10 @@ export class HALeg extends HMLeg {
         return 42;
     }
 
+    get disableAutomaticSequencing(): boolean {
+        return false;
+    }
+
     get repr(): string {
         return `HA '${this.to.ident}'`;
     }
@@ -381,6 +389,10 @@ export class HFLeg extends HMLeg {
         // always terminate on first crossing of holding fix after entry
         this.termConditionMet = true;
         return super.getGuidanceParameters(ppos, trueTrack);
+    }
+
+    get disableAutomaticSequencing(): boolean {
+        return false;
     }
 
     get repr(): string {
