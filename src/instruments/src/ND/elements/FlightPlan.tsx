@@ -674,9 +674,14 @@ function drawPathVectors(mapParams: MapParameters, pathVectors: PathVector[]): s
         let y = MathUtils.fastToFixed(inY, 1);
         path.push(`M ${x} ${y}`);
 
+        const inOutOfBounds = Math.abs(inX) > 1000 || Math.abs(inY) > 1000;
+
         switch (vector.type) {
         case PathVectorType.Line: {
             const [outX, outY] = mapParams.coordinatesToXYy(vector.endPoint!);
+            if (inOutOfBounds && (Math.abs(outX) > 1000 || Math.abs(outY) > 1000)) {
+                continue;
+            }
             x = MathUtils.fastToFixed(outX, 1);
             y = MathUtils.fastToFixed(outY, 1);
             path.push(`L ${x} ${y}`);
@@ -685,6 +690,9 @@ function drawPathVectors(mapParams: MapParameters, pathVectors: PathVector[]): s
         case PathVectorType.Arc: {
             const r = Avionics.Utils.computeGreatCircleDistance(vector.centrePoint!, vector.startPoint) * mapParams.nmToPx;
             const [outX, outY] = mapParams.coordinatesToXYy(vector.endPoint!);
+            if (inOutOfBounds && (Math.abs(outX) > 1000 || Math.abs(outY) > 1000)) {
+                continue;
+            }
             x = MathUtils.fastToFixed(outX, 1);
             y = MathUtils.fastToFixed(outY, 1);
             path.push(`A ${r} ${r} 0 ${Math.abs(vector.sweepAngle!) >= 180 ? 1 : 0} ${vector.sweepAngle! > 0 ? 1 : 0} ${x} ${y}`);
