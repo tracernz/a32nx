@@ -72,7 +72,7 @@ export class VMLeg extends Leg {
         };
     }
 
-    getNominalRollAngle(_gs): Degrees {
+    getNominalRollAngle(_gs: Knots): Degrees {
         return 0;
     }
 

@@ -207,7 +207,7 @@ export class LnavDriver implements GuidanceComponent {
                     // sequence this way is VM
                     if (currentLeg instanceof TFLeg && currentLeg.to.endsInDiscontinuity && nextLeg instanceof TFLeg) {
                         this.sequenceDiscontinuity(currentLeg);
-                        this.guidanceController.automaticSequencing = false;
+                        // TODO this.guidanceController.automaticSequencing = false;
                     } else {
                         this.sequenceLeg(currentLeg);
                     }
@@ -215,7 +215,7 @@ export class LnavDriver implements GuidanceComponent {
                     this.guidanceController.automaticSequencing = !nextLeg.disableAutomaticSequencing;
                 } else {
                     this.sequenceDiscontinuity(currentLeg);
-                    this.guidanceController.automaticSequencing = false;
+                    // TODO this.guidanceController.automaticSequencing = false;
                 }
             }
         }

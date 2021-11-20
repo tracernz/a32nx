@@ -222,7 +222,7 @@ export class TFLeg extends XFLeg {
         };
     }
 
-    getNominalRollAngle(_gs): Degrees {
+    getNominalRollAngle(_gs: Knots): Degrees {
         return 0;
     }
 

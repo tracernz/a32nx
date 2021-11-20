@@ -242,12 +242,9 @@ export class Geometry {
             return 0;
         }
 
-        // convert ground speed to m/s
-        const groundSpeedMeterPerSecond = gs * (463 / 900);
-
         // get nominal phi from previous and next leg
-        const phiNominalFrom = from.getNominalRollAngle(groundSpeedMeterPerSecond);
-        const phiNominalTo = to.getNominalRollAngle(groundSpeedMeterPerSecond);
+        const phiNominalFrom = from.getNominalRollAngle(gs) ?? 0;
+        const phiNominalTo = to.getNominalRollAngle(gs) ?? 0;
 
         // TODO consider case where RAD > transition distance
 
@@ -258,12 +255,10 @@ export class Geometry {
         // calculate delta phi
         const deltaPhi = Math.abs(bankA - bankB);
 
-        const gsMs = gs * 463 / 900;
-
         // calculate RAD
         const maxRollRate = 5; // deg / s, TODO picked off the wind
-        const k2 = 0.0076;
-        const rad = gsMs / 3600 * (Math.sqrt(1 + 2 * k2 * 9.81 * deltaPhi / maxRollRate) - 1) / (k2 * 9.81);
+        const k2 = 0.0038;
+        const rad = gs / 3600 * (Math.sqrt(1 + 2 * k2 * 9.81 * deltaPhi / maxRollRate) - 1) / (k2 * 9.81);
 
         return rad;
     }
@@ -279,11 +274,6 @@ export class Geometry {
 
     shouldSequenceLeg(ppos: LatLongAlt): boolean {
         const activeLeg = this.legs.get(1);
-
-        // VM legs do not connect to anything and do not have a transition after them - we never sequence them
-        if (activeLeg instanceof VMLeg) {
-            return false;
-        }
 
         const transitionAfterActiveLeg = this.transitions.get(1);
         if (activeLeg instanceof TFLeg && transitionAfterActiveLeg instanceof Type1Transition) {

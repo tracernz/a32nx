@@ -1,4 +1,5 @@
 import { MathUtils } from '@shared/MathUtils';
+import { DFLeg } from '@fmgc/guidance/lnav/legs/DF';
 import { TFLeg } from '@fmgc/guidance/lnav/legs/TF';
 import { DFLeg } from '@fmgc/guidance/lnav/legs/DF';
 import { Transition } from '@fmgc/guidance/lnav/Transition';
@@ -270,7 +271,7 @@ export class Type1Transition extends Transition {
         );
     }
 
-    getNominalRollAngle(gs): Degrees {
+    getNominalRollAngle(gs: Knots): Degrees {
         return (this.clockwise ? 1 : -1) * Math.atan((gs ** 2) / (this.radius * 1852 * 9.81)) * (180 / Math.PI);
     }
 

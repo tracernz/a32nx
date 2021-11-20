@@ -236,8 +236,9 @@ export class Type4Transition extends Transition {
         );
     }
 
-    getNominalRollAngle(gs): Degrees {
-        return (this.clockwise ? 1 : -1) * Math.atan((gs ** 2) / (this.radius * 1852 * 9.81)) * (180 / Math.PI);
+    getNominalRollAngle(gs: Knots): Degrees {
+        const gsMs = gs * (463 / 900);
+        return (this.clockwise ? 1 : -1) * Math.atan((gsMs ** 2) / (this.radius * 1852 * 9.81)) * (180 / Math.PI);
     }
 
     get repr(): string {

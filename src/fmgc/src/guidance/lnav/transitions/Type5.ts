@@ -55,7 +55,7 @@ export class Type5Transition extends Transition {
     // hax
     private wasAbeam = false;
 
-    private captureInbound = false;
+    private frozen = false;
 
     constructor(
         private previousLeg: /* AFLeg | CFLeg |*/ DFLeg | RFLeg | TFLeg,
@@ -75,13 +75,10 @@ export class Type5Transition extends Transition {
     }
 
     getDistanceToGo(_ppos: LatLongData): NauticalMiles {
-        if (this.entry === EntryType.Null) {
+        if (this.entry === EntryType.Null || this.state === EntryState.Capture) {
             return 0;
         }
         // TODO
-        if (this.captureInbound) {
-            return 0;
-        }
         return 1;
     }
 
@@ -122,17 +119,12 @@ export class Type5Transition extends Transition {
             }
             break;
         case EntryState.Turn2:
-            dtg = arcDistanceToGo(ppos, this.turn2.itp, this.turn2.arcCentre, this.turn2.sweepAngle);
-            if (dtg <= 0) {
-                this.state = EntryState.Capture;
-            }
-            break;
         case EntryState.Capture:
         default:
         }
 
         let bankNext: Degrees = 0;
-        let params: LateralPathGuidance;
+        let params: GuidanceParameters | undefined;
         // compute guidance
         switch (this.state) {
         case EntryState.Turn1:
@@ -143,23 +135,28 @@ export class Type5Transition extends Transition {
             bankNext = this.turn2.sweepAngle > 0 ? maxBank(tas, true) : -maxBank(tas, true);
             break;
         case EntryState.Turn2:
-            /* params = {
-                law: ControlLaw.LATERAL_PATH,
-                crossTrackError: 0,
-                trackAngleError: 0,
-                phiCommand: this.turn2.sweepAngle > 0 ? HMLeg.maxBank(tas) : -HMLeg.maxBank(tas),
-            }; */
-            params = arcGuidance(ppos, trueTrack, this.turn2.itp, this.turn2.arcCentre, this.turn2.sweepAngle);
-            bankNext = this.turn2.sweepAngle > 0 ? maxBank(tas, true /* FIXME false */) : -maxBank(tas, true /* FIXME false */);
-            break;
         case EntryState.Capture:
-            this.captureInbound = true;
+            const phiCommand = this.turn2.sweepAngle > 0 ? maxBank(tas, true /* FIXME false */) : -maxBank(tas, true /* FIXME false */);
+            const refFrameOffset = Avionics.Utils.diffAngle(0, this.outboundCourse);
+            const trackAngleError = this.turn2.sweepAngle < 0 ? Avionics.Utils.clampAngle(refFrameOffset - trueTrack) : Avionics.Utils.clampAngle(trueTrack - refFrameOffset);
+            if (trackAngleError < 130) {
+                this.state = EntryState.Capture;
+                params = this.nextLeg.getGuidanceParameters(ppos, trueTrack);
+            } else {
+                // force the initial part of the turn to ensure correct direction
+                params = {
+                    law: ControlLaw.LATERAL_PATH,
+                    trackAngleError,
+                    phiCommand,
+                    crossTrackError: 0,
+                };
+            }
             break;
         default:
         }
 
         const rad = Geometry.getRollAnticipationDistance(tas, params.phiCommand, bankNext);
-        if (dtg <= rad) {
+        if (rad > 0 && dtg <= rad) {
             params.phiCommand = bankNext;
         }
 
@@ -187,6 +184,10 @@ export class Type5Transition extends Transition {
             return this.nextLeg.getNominalRollAngle(gs);
         }
 
+        if (Math.abs(this.turn1.sweepAngle) <= 3) {
+            return 0;
+        }
+
         return this.turn1.sweepAngle > 0 ? maxBank(gs /* FIXME tas */, true) : -maxBank(gs /* FIXME tas */, true);
     }
 
@@ -210,7 +211,7 @@ export class Type5Transition extends Transition {
             this.wasAbeam = true;
             return true;
         }
-        return !this.captureInbound;
+        return this.wasAbeam && this.state !== EntryState.Capture;
     }
 
     get isCircularArc(): boolean {
@@ -251,12 +252,12 @@ export class Type5Transition extends Transition {
 
         this.turn1.itp = this.nextLeg.to.infos.coordinates;
         this.turn1.arcCentre = Avionics.Utils.bearingDistanceToCoordinates(
-            this.inboundCourse + (this.nextLeg.to.turnDirection === TurnDirection.Right ? -90 : 90),
+            this.inboundCourse + (this.nextLeg.to.turnDirection === TurnDirection.Right ? 90 : -90),
             radius,
             this.turn1.itp.lat, this.turn1.itp.long,
         );
         this.turn1.sweepAngle = Avionics.Utils.diffAngle(this.inboundCourse, this.outboundCourse + 150);
-        const bearing1 = Avionics.Utils.clampAngle(this.inboundCourse + (this.nextLeg.to.turnDirection === TurnDirection.Right ? this.turn1.sweepAngle + 90 : -this.turn1.sweepAngle - 90));
+        const bearing1 = Avionics.Utils.clampAngle(this.inboundCourse + (this.nextLeg.to.turnDirection === TurnDirection.Right ? this.turn1.sweepAngle - 90 : -this.turn1.sweepAngle + 90));
         this.turn1.ftp = Avionics.Utils.bearingDistanceToCoordinates(bearing1, radius, this.turn1.arcCentre.lat, this.turn1.arcCentre.long);
 
         this.predictedPath.length = 0;
@@ -310,7 +311,7 @@ export class Type5Transition extends Transition {
 
         this.predictedPath.push({
             type: PathVectorType.Line,
-            startPoint: this.turn3.ftp,
+            startPoint: this.turn2.ftp,
             endPoint: this.turn3.itp,
         });
 
@@ -400,10 +401,20 @@ export class Type5Transition extends Transition {
         });
     }
 
-    recomputeWithParameters(_isActive: boolean, _tas: Knots, _gs: Knots, _ppos: Coordinates, _previousGuidable: Guidable, _nextGuidable: Guidable): void {
+    recomputeWithParameters(isActive: boolean, _tas: Knots, _gs: Knots, _ppos: Coordinates, _previousGuidable: Guidable, _nextGuidable: Guidable): void {
         const hxInbound = this.outboundCourse;
         const entryAngle = Avionics.Utils.diffAngle(this.inboundCourse, hxInbound);
 
+        if (this.frozen) {
+            if (this.state === EntryState.Capture) {
+                this.computedPath.length = 0;
+            }
+            return;
+        }
+
+        if (isActive && !this.frozen) {
+            this.frozen = true;
+        }
         // TODO freeze once we're active?
 
         if (entryAngle >= -3 && entryAngle <= 3) {

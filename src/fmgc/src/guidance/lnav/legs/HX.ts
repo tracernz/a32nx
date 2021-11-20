@@ -165,8 +165,8 @@ export class HMLeg extends Leg {
      * @param tas m/s... why tho?
      * @returns
      */
-    public getNominalRollAngle(tas): Degrees {
-        return this.isCircularArc ? maxBank(tas, true) : 0;
+    public getNominalRollAngle(gs: Knots): Degrees {
+        return this.isCircularArc ? maxBank(gs, true) : 0;
     }
 
     protected getDistanceToGoThisOrbit(ppos: LatLongData): NauticalMiles {
@@ -188,10 +188,7 @@ export class HMLeg extends Leg {
     }
 
     getDistanceToGo(ppos: LatLongData): NauticalMiles {
-        if (this.termConditionMet /* IMM EXIT */) {
-            return this.getDistanceToGoThisOrbit(ppos);
-        }
-        return this.computeLegDistance() * 2 + 2 * this.radius * Math.PI;
+        return this.getDistanceToGoThisOrbit(ppos);
     }
 
     get predictedPath(): PathVector[] {
@@ -339,7 +336,7 @@ export class HMLeg extends Leg {
     }
 
     get repr(): string {
-        return `HM '${this.to.ident}'`;
+        return `${this.constructor.name.substr(0, 2)} '${this.to.ident}' ${TurnDirection[this.to.turnDirection]}`;
     }
 }
 
@@ -376,10 +373,6 @@ export class HALeg extends HMLeg {
     get disableAutomaticSequencing(): boolean {
         return false;
     }
-
-    get repr(): string {
-        return `HA '${this.to.ident}'`;
-    }
 }
 
 export class HFLeg extends HMLeg {
@@ -391,11 +384,12 @@ export class HFLeg extends HMLeg {
         return super.getGuidanceParameters(ppos, trueTrack);
     }
 
-    get disableAutomaticSequencing(): boolean {
-        return false;
+    getDistanceToGo(ppos: LatLongData): NauticalMiles {
+        // TODO early exit to CF leg...
+        return super.getDistanceToGoThisOrbit(ppos);
     }
 
-    get repr(): string {
-        return `HF '${this.to.ident}'`;
+    get disableAutomaticSequencing(): boolean {
+        return false;
     }
 }

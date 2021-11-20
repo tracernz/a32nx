@@ -56,7 +56,7 @@ export abstract class Guidable {
     /**
      * For roll anticipation
      */
-    abstract getNominalRollAngle(gs): Degrees | undefined;
+    abstract getNominalRollAngle(gs: Knots): Degrees | undefined;
 
     abstract get repr(): string;
 }
