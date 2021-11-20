@@ -210,8 +210,11 @@ export class Geometry {
                 rad = this.getGuidableRollAnticipationDistance(gs, activeGuidable, nextGuidable);
                 if (rad > 0 && dtg <= rad) {
                     const nextGuidanceParams = nextGuidable.getGuidanceParameters(ppos, trueTrack);
-                    guidanceParams.phiCommand = nextGuidanceParams?.phiCommand ?? 0;
-                 }
+
+                    if (nextGuidanceParams.law === ControlLaw.LATERAL_PATH) {
+                        (guidanceParams as LateralPathGuidance).phiCommand = nextGuidanceParams?.phiCommand ?? 0;
+                    }
+                }
             }
         }
 
