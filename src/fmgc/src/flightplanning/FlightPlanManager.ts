@@ -1624,7 +1624,7 @@ export class FlightPlanManager {
         return this._flightPlans[this._currentFlightPlanIndex].directTo.interceptPoints[0];
     }
 
-    public getCoordinatesHeadingAtDistanceAlongFlightPlan(distance) {
+    public getCoordinatesHeadingAtDistanceAlongFlightPlan(_distance) {
     }
 
     /**
@@ -1673,7 +1673,13 @@ export class FlightPlanManager {
         } else if (window.localStorage.getItem(FlightPlanManager.FlightPlanCompressedKey) === '1') {
             this._flightPlans = JSON.parse(LZUTF8.decompress(fpln, { inputEncoding: 'StorageBinaryString' }));
         } else {
-            this._flightPlans = JSON.parse(fpln);
+            try {
+                this._flightPlans = JSON.parse(fpln);
+            } catch (e) {
+                // Assume we failed because compression status did not match up. Try to decompress anyway.
+
+                this._flightPlans = JSON.parse(LZUTF8.decompress(fpln, { inputEncoding: 'StorageBinaryString' }));
+            }
         }
     }
 

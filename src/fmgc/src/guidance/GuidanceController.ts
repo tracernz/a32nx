@@ -53,6 +53,9 @@ export class GuidanceController {
     init() {
         console.log('[FMGC/Guidance] GuidanceController initialized!');
 
+        this.lnavDriver.ppos.lat = SimVar.GetSimVarValue('PLANE LATITUDE', 'degree latitude');
+        this.lnavDriver.ppos.long = SimVar.GetSimVarValue('PLANE LONGITUDE', 'degree longitude');
+
         this.generateNewGeometry();
 
         this.lnavDriver.init();
@@ -67,38 +70,45 @@ export class GuidanceController {
     update(deltaTime: number) {
         this.geometryRecomputationTimer += deltaTime;
 
-        // Generate new geometry when flight plan changes
-        const newFlightPlanVersion = this.flightPlanManager.currentFlightPlanVersion;
-        if (newFlightPlanVersion !== this.lastFlightPlanVersion) {
-            this.lastFlightPlanVersion = newFlightPlanVersion;
+        try {
+            // Generate new geometry when flight plan changes
+            const newFlightPlanVersion = this.flightPlanManager.currentFlightPlanVersion;
+            if (newFlightPlanVersion !== this.lastFlightPlanVersion) {
+                this.lastFlightPlanVersion = newFlightPlanVersion;
 
-            this.generateNewGeometry();
-        }
-
-        if (this.geometryRecomputationTimer > GEOMETRY_RECOMPUTATION_TIMER) {
-            this.geometryRecomputationTimer = 0;
-
-            const tas = SimVar.GetSimVarValue('AIRSPEED TRUE', 'Knots');
-            const gs = SimVar.GetSimVarValue('GPS GROUND SPEED', 'Knots');
-
-            this.recomputeGeometry();
-
-            if (this.currentMultipleLegGeometry) {
-                this.vnavDriver.acceptMultipleLegGeometry(this.currentMultipleLegGeometry);
-                this.pseudoWaypoints.acceptMultipleLegGeometry(this.currentMultipleLegGeometry);
+                this.generateNewGeometry();
             }
-        }
 
-        this.lnavDriver.update(deltaTime);
-        this.vnavDriver.update(deltaTime);
-        this.pseudoWaypoints.update(deltaTime);
+            if (this.geometryRecomputationTimer > GEOMETRY_RECOMPUTATION_TIMER) {
+                this.geometryRecomputationTimer = 0;
+
+                this.recomputeGeometry();
+
+                if (this.currentMultipleLegGeometry) {
+                    this.vnavDriver.acceptMultipleLegGeometry(this.currentMultipleLegGeometry);
+                    this.pseudoWaypoints.acceptMultipleLegGeometry(this.currentMultipleLegGeometry);
+                }
+            }
+
+            this.lnavDriver.update(deltaTime);
+            this.vnavDriver.update(deltaTime);
+            this.pseudoWaypoints.update(deltaTime);
+        } catch (e) {
+            console.error('[FMS] Error during tick. See exception below.');
+            console.error(e);
+        }
     }
 
     /**
      * Called when the lateral flight plan is changed
      */
     generateNewGeometry() {
-        this.currentActiveLegPathGeometry = this.guidanceManager.getActiveLegPathGeometry();
+        if (this.currentActiveLegPathGeometry) {
+            this.guidanceManager.updateActiveLegPathGeometry(this.currentActiveLegPathGeometry);
+        } else {
+            this.currentActiveLegPathGeometry = this.guidanceManager.getActiveLegPathGeometry();
+        }
+
         this.currentMultipleLegGeometry = this.guidanceManager.getMultipleLegGeometry();
 
         this.recomputeGeometry();

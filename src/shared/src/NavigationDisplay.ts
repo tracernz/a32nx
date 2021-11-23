@@ -1,6 +1,8 @@
 //  Copyright (c) 2021 FlyByWire Simulations
 //  SPDX-License-Identifier: GPL-3.0
 
+import { Coordinates } from '@fmgc/flightplanning/data/geo';
+
 export type RangeSetting = 10 | 20 | 40 | 80 | 160 | 320;
 export const rangeSettings: RangeSetting[] = [10, 20, 40, 80, 160, 320];
 
@@ -21,12 +23,6 @@ export enum EfisOption {
     Waypoints = 3,
     Ndbs = 4,
     Airports = 5,
-}
-
-// TODO get from proper place
-interface LatLongData {
-    lat: number,
-    long: number,
 }
 
 export enum NdSymbolTypeFlags {
@@ -50,14 +46,26 @@ export enum NdSymbolTypeFlags {
     PwpTopOfDescent = 1 << 17,
     PwpCdaFlap1 = 1 << 18,
     PwpCdaFlap2 = 1 << 19,
+    FlightPlanVectorLine = 1 << 20,
+    FlightPlanVectorArc = 1 << 21,
+    FlightPlanVectorDebugPoint = 1 << 22,
+    ActiveFlightPlanVector = 1 << 23,
+    TemporaryFlightPlanVector = 1 << 24,
+    DashedFlightPlanVector = 1 << 25,
+    SecondaryFlightPlanVector = 1 << 26,
+    MissedFlightPlanVector = 1 << 27,
 }
 
 export interface NdSymbol {
     databaseId: string,
     ident: string,
-    location: LatLongData,
+    location: Coordinates,
     direction?: number, // true
     length?: number, // nautical miles
+    lineEnd?: Coordinates,
+    arcRadius?: number,
+    arcSweepAngle?: Degrees,
+    arcEnd?: Coordinates,
     type: NdSymbolTypeFlags,
     constraints?: string[],
     radials?: number[],

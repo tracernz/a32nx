@@ -1,4 +1,3 @@
-import { VMLeg } from '@fmgc/guidance/lnav/legs/VM';
 import { Transition } from '@fmgc/guidance/lnav/Transition';
 import { Type1Transition } from '@fmgc/guidance/lnav/transitions/Type1';
 import { TFLeg } from '@fmgc/guidance/lnav/legs/TF';
@@ -9,7 +8,12 @@ import { SegmentType } from '@fmgc/flightplanning/FlightPlanSegment';
 import { Leg } from '@fmgc/guidance/lnav/legs/Leg';
 import { Guidable } from '@fmgc/guidance/Guidable';
 import { XFLeg } from '@fmgc/guidance/lnav/legs/XF';
-import { GuidanceParameters } from './ControlLaws';
+import { LnavConfig } from '@fmgc/guidance/LnavConfig';
+import { Type3Transition } from '@fmgc/guidance/lnav/transitions/Type3';
+import { Type4GuidanceState, Type4Transition } from '@fmgc/guidance/lnav/transitions/Type4';
+import { PathVector } from '@fmgc/guidance/lnav/PathVector';
+import { CALeg } from '@fmgc/guidance/lnav/legs/CA';
+import { ControlLaw, GuidanceParameters, LateralPathGuidance } from './ControlLaws';
 
 export class Geometry {
     /**
@@ -32,6 +36,22 @@ export class Geometry {
     }
 
     public isComputed = false;
+
+    public getAllPathVectors(): PathVector[] {
+        const ret = [];
+
+        for (const [index, leg] of this.legs.entries()) {
+            const legInboundTransition = this.transitions.get(index - 1);
+
+            if (legInboundTransition) {
+                ret.push(...legInboundTransition.predictedPath);
+            }
+
+            ret.push(...leg.predictedPath);
+        }
+
+        return ret;
+    }
 
     /**
      * Recomputes the guidable using new parameters
@@ -61,22 +81,28 @@ export class Geometry {
                 console.log(`[FMS/Geometry] Predicted leg (${leg.repr}) with tas: ${predictedLegTas}kts`);
             }
 
-            if (!(prevLeg instanceof XFLeg)) {
-                this.recomputeFloatingPath(index - 1, tas, predictedLegGs, ppos, activeLegIdx, activeTransIdx);
-            } else {
-                const inboundGuidable = this.transitions.get(index - 1) ?? this.legs.get(index - 1);
-                const outboundGuidable = this.transitions.get(index) ?? this.legs.get(index + 1);
-                const nextLeg = this.legs.get(index + 1);
+            const legInbound = this.transitions.get(index - 1) ?? this.legs.get(index - 1);
+            const legOutbound = this.transitions.get(index) ?? this.legs.get(index + 1);
+            const nextLeg = this.legs.get(index + 1);
 
-                if (inboundGuidable instanceof Transition) {
-                    inboundGuidable.recomputeWithParameters(
-                        activeTransIdx === index || activeTransIdx === leg.indexInFullPath,
-                        predictedLegTas,
-                        predictedLegGs,
-                        ppos,
-                        prevLeg,
-                        leg,
-                    );
+            // If the inbound guidable is not fix referenced, we can't recompute the current leg without first computing that one, which
+            // potentially has other dependencies of the sort.
+            //
+            // We solve this by instead computing forwards to the next (from our backwards point of view) XF leg up to this one. This allows us
+            // to have the inbound guidable computed properly so we can compute our leg.
+            if (prevLeg && (!(prevLeg instanceof XFLeg) || (legInbound instanceof Type3Transition || legInbound instanceof Type4Transition))) {
+                if (LnavConfig.DEBUG_GUIDABLE_RECOMPUTATION) {
+                    console.log('[FMS/Geometry] Starting floating path.');
+                }
+
+                this.recomputeFloatingPath(index - 1, tas, predictedLegGs, ppos, activeLegIdx, activeTransIdx);
+
+                if (LnavConfig.DEBUG_GUIDABLE_RECOMPUTATION) {
+                    console.log('[FMS/Geometry] Done with floating path.');
+                }
+            } else {
+                if (LnavConfig.DEBUG_GUIDABLE_RECOMPUTATION) {
+                    console.log(`[FMS/Geometry Recomputing leg '${leg.repr}'`);
                 }
 
                 // FIXME the order is not necessarily right here
@@ -86,21 +112,23 @@ export class Geometry {
                     predictedLegTas,
                     predictedLegGs,
                     ppos,
-                    inboundGuidable,
-                    outboundGuidable,
+                    legInbound,
+                    legOutbound,
                 );
 
+                if (LnavConfig.DEBUG_GUIDABLE_RECOMPUTATION) {
+                    console.log(`[FMS/Geometry Recomputing inbound guidable '${legInbound?.repr ?? '<unknown>'}' for leg '${leg.repr}'`);
+                }
+
                 // Will this compute the inbound transition of the active leg ? (if prev leg remains)
-                /*if (legOutbound !== nextLeg) {
-                    legOutbound?.recomputeWithParameters(
-                        activeTransIdx === index || activeTransIdx === leg.indexInFullPath,
-                        predictedLegTas,
-                        predictedLegGs,
-                        ppos,
-                        leg,
-                        nextLeg,
-                    );
-                }*/
+                legOutbound?.recomputeWithParameters(
+                    activeTransIdx === index || activeTransIdx === leg.indexInFullPath,
+                    predictedLegTas,
+                    predictedLegGs,
+                    ppos,
+                    leg,
+                    nextLeg,
+                );
             }
         }
 
@@ -113,24 +141,46 @@ export class Geometry {
 
     recomputeFloatingPath(fromIndex: number, tas: Knots, gs: MetresPerSecond, ppos: Coordinates, activeLegIdx: number, activeTransIdx: number): void {
         let firstXFLegIndex;
-        for (let i = fromIndex; i > 0; i--) {
+        for (let i = fromIndex; i >= 0; i--) {
             const leg = this.legs.get(i);
+            const legInbound = this.transitions.get(i - 1) ?? this.legs.get(i - 1);
 
-            if (leg instanceof XFLeg) {
+            // Find first leg which is an XFLeg and has a fixed transition
+            if (leg instanceof XFLeg && !(legInbound instanceof Type3Transition) && !(legInbound instanceof Type4Transition)) {
                 firstXFLegIndex = i;
+                break;
             }
         }
 
-        // Compute all non-XF legs and their transitions after this
-        for (let i = firstXFLegIndex; i < this.legs.size; i++) {
+        // In an active leg path geometry, we might not have a fix-referenced path at index 0.
+        // In this case, assume the first one knows its starting position from PPOS or has it frozen.
+        if (firstXFLegIndex === undefined) {
+            for (let i = 0; i <= fromIndex; i++) {
+                firstXFLegIndex = i;
+                if (this.legs.get(i)) {
+                    break;
+                }
+            }
+
+            if (LnavConfig.DEBUG_GUIDABLE_RECOMPUTATION && activeLegIdx !== 0) {
+                console.warn('[FMS/Geometry] Geometry has no fix-referenced path for forwards computation and leg at index 0 is not active. Something may be broken.');
+            }
+        }
+
+        // Compute all non-XF legs and their transitions after this, up to the leg we started with
+        for (let i = firstXFLegIndex; i <= fromIndex + 1; i++) {
             const leg = this.legs.get(i);
 
             const inboundGuidable = this.transitions.get(i - 1) ?? this.legs.get(i - 1);
             const inboundGuidableInboundGuidable = inboundGuidable instanceof Transition ? this.legs.get(i - 1) : (this.transitions.get(i - 2) ?? this.legs.get(i - 2));
             const outboundGuidable = this.transitions.get(i) ?? this.legs.get(i + 1);
 
+            if (LnavConfig.DEBUG_GUIDABLE_RECOMPUTATION) {
+                console.log(`[FMS/Geometry] Recomputing inbound guidable '${inboundGuidable?.repr ?? '<unknown>'}' for leg '${leg.repr}'`);
+            }
+
             inboundGuidable?.recomputeWithParameters(
-                inboundGuidable instanceof Transition ? activeTransIdx === i : activeLegIdx === i,
+                inboundGuidable instanceof Transition ? activeTransIdx === leg.indexInFullPath - 1 : activeLegIdx === leg.indexInFullPath,
                 tas,
                 gs,
                 ppos,
@@ -138,7 +188,11 @@ export class Geometry {
                 leg,
             );
 
-            leg.recomputeWithParameters(activeLegIdx === i, tas, gs, ppos, inboundGuidable, outboundGuidable);
+            if (LnavConfig.DEBUG_GUIDABLE_RECOMPUTATION) {
+                console.log(`[FMS/Geometry] Recomputing leg '${leg.repr}'`);
+            }
+
+            leg.recomputeWithParameters(activeLegIdx === leg.indexInFullPath, tas, gs, ppos, inboundGuidable, outboundGuidable);
         }
     }
 
@@ -151,18 +205,11 @@ export class Geometry {
     }
 
     /**
-     *
      * @param ppos
      * @param trueTrack
-     * @example
-     * const a = SimVar.GetSimVarValue("PLANE LATITUDE", "degree latitude"),
-     * const b = SimVar.GetSimVarValue("PLANE LONGITUDE", "degree longitude")
-     * const ppos = new LatLongAlt(a, b);
-     * const trueTrack = SimVar.GetSimVarValue("GPS GROUND TRUE TRACK", "degree");
-     * const gs = SimVar.GetSimVarValue('GPS GROUND SPEED', 'knots');
-     * getGuidanceParameters(ppos, trueTrack, gs);
+     * @param gs
      */
-    getGuidanceParameters(ppos, trueTrack, gs) {
+    getGuidanceParameters(ppos: Coordinates, trueTrack: DegreesTrue, gs: Knots) {
         const activeLeg = this.legs.get(1);
         const nextLeg = this.legs.get(2);
 
@@ -177,8 +224,14 @@ export class Geometry {
                 fromTransition.isFrozen = true;
             }
 
-            activeGuidable = fromTransition;
-            nextGuidable = activeLeg;
+            // Since CA leg Type3 inbound starts at PPOS, we always consider the CA leg as the active guidable
+            if (fromTransition instanceof Type3Transition && activeLeg instanceof CALeg) {
+                activeGuidable = activeLeg;
+                nextGuidable = toTransition;
+            } else {
+                activeGuidable = fromTransition;
+                nextGuidable = activeLeg;
+            }
         } else if (toTransition && !toTransition.isNull) {
             if (toTransition.isAbeam(ppos)) {
                 if (toTransition instanceof Type1Transition && !toTransition.isFrozen) {
@@ -221,30 +274,42 @@ export class Geometry {
         SimVar.SetSimVarValue('L:A32NX_FG_DTG', 'number', dtg ?? -1);
         SimVar.SetSimVarValue('L:A32NX_FG_RAD', 'number', rad ?? -1);
 
-        if (true) {
+        if (LnavConfig.DEBUG_GUIDANCE) {
             this.listener.triggerToAllSubscribers('A32NX_FM_DEBUG_LNAV_STATUS',
+                // eslint-disable-next-line prefer-template
                 'A32NX FMS LNAV STATUS\n'
-                + `XTE            ${SimVar.GetSimVarValue('L:A32NX_FG_CROSS_TRACK_ERROR', 'number').toFixed(3)}\n`
-                + `TAE            ${SimVar.GetSimVarValue('L:A32NX_FG_TRACK_ANGLE_ERROR', 'number').toFixed(3)}\n`
-                + `PHI COMMAND    ${SimVar.GetSimVarValue('L:A32NX_FG_PHI_COMMAND', 'number').toFixed(5)}\n`
+                + `XTE ${(guidanceParams as LateralPathGuidance).crossTrackError?.toFixed(3) ?? '(NO DATA)'}\n`
+                + `TAE ${(guidanceParams as LateralPathGuidance).trackAngleError?.toFixed(3) ?? '(NO DATA)'}\n`
+                + `PHI ${(guidanceParams as LateralPathGuidance).phiCommand?.toFixed(5) ?? '(NO DATA)'}\n`
                 + '---\n'
-                + `CURR GUIDABLE  ${activeGuidable?.repr ?? '---'}\n`
+                + `CURR GUIDABLE ${activeGuidable?.repr ?? '---'}\n`
+                + `CURR GUIDABLE DTG ${dtg.toFixed(3)}\n`
+                + ((activeGuidable instanceof Type4Transition) ? `TYPE4 STATE ${Type4GuidanceState[(activeGuidable as Type4Transition).state]}\n` : '')
                 + '---\n'
-                + `RAD GUIDABLE   ${nextGuidable?.repr ?? '---'}\n`
-                + `RAD DISTANCE   ${rad?.toFixed(3) ?? '---'}`);
+                + `RAD GUIDABLE ${nextGuidable?.repr ?? '---'}\n`
+                + `RAD DISTANCE ${rad?.toFixed(3) ?? '---'}\n`
+                + '---\n'
+                + `L0 ${this.legs.get(0)?.repr ?? '---'}\n`
+                + `T0 ${this.transitions.get(0)?.repr ?? '---'}\n`
+                + `L1 ${this.legs.get(1)?.repr ?? '---'}\n`
+                + `T1 ${this.transitions.get(1)?.repr ?? '---'}\n`
+                + `L2 ${this.legs.get(2)?.repr ?? '---'}\n`);
         }
 
         return guidanceParams;
     }
 
-    getGuidableRollAnticipationDistance(gs, from: Guidable, to: Guidable) {
+    getGuidableRollAnticipationDistance(gs: Knots, from: Guidable, to: Guidable) {
         if (!from.isCircularArc && !to.isCircularArc) {
             return 0;
         }
 
+        // convert ground speed to m/s
+        const groundSpeedMeterPerSecond = gs * (463 / 900);
+
         // get nominal phi from previous and next leg
-        const phiNominalFrom = from.getNominalRollAngle(gs) ?? 0;
-        const phiNominalTo = to.getNominalRollAngle(gs) ?? 0;
+        const phiNominalFrom = from.isCircularArc ? from.getNominalRollAngle(groundSpeedMeterPerSecond) : 0;
+        const phiNominalTo = to.isCircularArc ? to.getNominalRollAngle(groundSpeedMeterPerSecond) : 0;
 
         // TODO consider case where RAD > transition distance
 
@@ -287,6 +352,12 @@ export class Geometry {
             const directedDtgToTransItp = GeoMath.directedDistanceToGo(ppos, transItp, innerAngleWithTransItp);
 
             return directedDtgToTransItp < 0;
+        } if (transitionAfterActiveLeg instanceof Type3Transition || transitionAfterActiveLeg instanceof Type4Transition) {
+            const dtg = activeLeg.getDistanceToGo(ppos);
+
+            if (dtg < 0) {
+                return true;
+            }
         }
 
         if (activeLeg) {

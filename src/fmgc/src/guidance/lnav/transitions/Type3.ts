@@ -6,27 +6,24 @@ import { RFLeg } from '@fmgc/guidance/lnav/legs/RF';
 import { TFLeg } from '@fmgc/guidance/lnav/legs/TF';
 import { VMLeg } from '@fmgc/guidance/lnav/legs/VM';
 import { Transition } from '@fmgc/guidance/lnav/Transition';
-import { ControlLaw, GuidanceParameters } from '@fmgc/guidance/ControlLaws';
+import { GuidanceParameters } from '@fmgc/guidance/ControlLaws';
 import { Coordinates } from '@fmgc/flightplanning/data/geo';
 import { Constants } from '@shared/Constants';
 import { GuidanceConstants } from '@fmgc/guidance/GuidanceConstants';
 import { Geo } from '@fmgc/utils/Geo';
+import { PathVector, PathVectorType } from '@fmgc/guidance/lnav/PathVector';
+import { Guidable } from '@fmgc/guidance/Guidable';
 import { arcDistanceToGo } from '../CommonGeometry';
 
-export type Type3PreviousLeg = /* AFLeg | */ CALeg | /* CDLeg | CFLeg | CRLeg | */ DFLeg | /* | FALeg | FMLeg |*/ HALeg | HFLeg | HMLeg |  RFLeg | TFLeg | /* VALeg | VDLeg | */ VMLeg;
+export type Type3PreviousLeg = /* AFLeg | */ CALeg | /* CDLeg | CFLeg | CRLeg | */ DFLeg | /* | FALeg | FMLeg | */ HALeg | HFLeg | HMLeg | RFLeg | TFLeg | /* VALeg | VDLeg | */ VMLeg;
 export type Type3NextLeg = CALeg | /* CDLeg | CILeg | CRLeg | VALeg | VDLeg | VILeg | */ VMLeg;
 
-const mod = (x: number, n: number) => x - Math.floor(x / n) * n;
 const tan = (input: Degrees) => Math.tan(input * (Math.PI / 180));
 
 /**
  * A type I transition uses a fixed turn radius between two fix-referenced legs.
  */
 export class Type3Transition extends Transition {
-    public previousLeg: Type3PreviousLeg;
-
-    public nextLeg: Type3NextLeg | TFLeg; // FIXME temporary
-
     constructor(
         previousLeg: Type3PreviousLeg,
         nextLeg: Type3NextLeg | TFLeg, // FIXME temporary
@@ -73,7 +70,9 @@ export class Type3Transition extends Transition {
 
     public clockwise: boolean;
 
-    recomputeWithParameters(isActive: boolean, tas: Knots, gs: Knots, ppos: Coordinates) {
+    public predictedPath: PathVector[] = [];
+
+    recomputeWithParameters(isActive: boolean, tas: Knots, gs: Knots, ppos: Coordinates, _previousGuidable: Guidable) {
         const termFix = this.previousLeg.getPathEndPoint();
 
         let courseChange;
@@ -102,7 +101,6 @@ export class Type3Transition extends Transition {
         // Turn direction
         this.clockwise = courseChange >= 0;
 
-        // FIXME PATH MODEL!!!!!!!!
         if (courseChange === 0) {
             this.isArc = false;
             this.startPoint = this.previousLeg.getPathEndPoint();
@@ -111,6 +109,13 @@ export class Type3Transition extends Transition {
             this.terminator = this.endPoint;
 
             this.isComputed = true;
+
+            this.predictedPath.length = 0;
+            this.predictedPath.push({
+                type: PathVectorType.Line,
+                startPoint: this.startPoint,
+                endPoint: this.endPoint,
+            });
 
             return;
         }
@@ -122,6 +127,15 @@ export class Type3Transition extends Transition {
         this.sweepAngle = courseChange;
 
         this.terminator = this.endPoint;
+
+        this.predictedPath.length = 0;
+        this.predictedPath.push({
+            type: PathVectorType.Arc,
+            startPoint: this.startPoint,
+            centrePoint: this.center,
+            endPoint: this.endPoint,
+            sweepAngle: this.sweepAngle,
+        });
 
         this.isComputed = true;
     }
@@ -166,36 +180,8 @@ export class Type3Transition extends Transition {
     }
 
     getGuidanceParameters(ppos: LatLongAlt, trueTrack: number): GuidanceParameters | null {
-        const { center } = this;
-
-        const bearingPpos = Avionics.Utils.computeGreatCircleHeading(
-            center,
-            ppos,
-        );
-
-        const desiredTrack = mod(
-            this.clockwise ? bearingPpos + 90 : bearingPpos - 90,
-            360,
-        );
-        const trackAngleError = mod(desiredTrack - trueTrack + 180, 360) - 180;
-
-        const distanceFromCenter = Avionics.Utils.computeGreatCircleDistance(
-            center,
-            ppos,
-        );
-        const crossTrackError = this.clockwise
-            ? distanceFromCenter - this.radius
-            : this.radius - distanceFromCenter;
-
-        const groundSpeed = SimVar.GetSimVarValue('GPS GROUND SPEED', 'knots');
-        const phiCommand = this.angle > 3 ? this.getNominalRollAngle(groundSpeed) : 0;
-
-        return {
-            law: ControlLaw.LATERAL_PATH,
-            trackAngleError,
-            crossTrackError,
-            phiCommand,
-        };
+        // FIXME PPOS guidance and all...
+        return this.nextLeg.getGuidanceParameters(ppos, trueTrack);
     }
 
     getPseudoWaypointLocation(distanceBeforeTerminator: NauticalMiles): LatLongData | undefined {
@@ -218,6 +204,6 @@ export class Type3Transition extends Transition {
     }
 
     get repr(): string {
-        return `TYPE1(${this.previousLeg.repr} TO ${this.nextLeg.repr})`;
+        return `TYPE3(${this.previousLeg.repr} TO ${this.nextLeg.repr})`;
     }
 }

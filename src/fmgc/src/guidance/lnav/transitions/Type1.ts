@@ -1,7 +1,6 @@
 import { MathUtils } from '@shared/MathUtils';
 import { DFLeg } from '@fmgc/guidance/lnav/legs/DF';
 import { TFLeg } from '@fmgc/guidance/lnav/legs/TF';
-import { DFLeg } from '@fmgc/guidance/lnav/legs/DF';
 import { Transition } from '@fmgc/guidance/lnav/Transition';
 import { ControlLaw, GuidanceParameters } from '@fmgc/guidance/ControlLaws';
 import { Coordinates } from '@fmgc/flightplanning/data/geo';
@@ -18,10 +17,6 @@ const mod = (x: number, n: number) => x - Math.floor(x / n) * n;
  * A type I transition uses a fixed turn radius between two fix-referenced legs.
  */
 export class Type1Transition extends Transition {
-    public previousLeg: Type1PreviousLeg;
-
-    public nextLeg: Type1NextLeg;
-
     public radius: NauticalMiles;
 
     public clockwise: boolean;
@@ -45,12 +40,16 @@ export class Type1Transition extends Transition {
         if (this.isComputed) {
             return this.turningPoints[0];
         }
+
+        throw Error('?');
     }
 
     getPathEndPoint(): Coordinates | undefined {
         if (this.isComputed) {
             return this.turningPoints[1];
         }
+
+        throw Error('?');
     }
 
     get isNull(): boolean {
@@ -200,8 +199,8 @@ export class Type1Transition extends Transition {
                 endPoint: outbound,
                 centrePoint: centreFix,
                 sweepAngle: this.clockwise ? this.angle : -this.angle,
-            }
-        ]
+            },
+        ];
 
         return [inbound, outbound];
     }

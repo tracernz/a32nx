@@ -1,4 +1,4 @@
-import { ControlLaw, GuidanceParameters } from '@fmgc/guidance/ControlLaws';
+import { GuidanceParameters } from '@fmgc/guidance/ControlLaws';
 import { MathUtils } from '@shared/MathUtils';
 import {
     AltitudeConstraint,
@@ -15,6 +15,7 @@ import { Guidable } from '@fmgc/guidance/Guidable';
 import { Constants } from '@shared/Constants';
 import { XFLeg } from '@fmgc/guidance/lnav/legs/XF';
 import { Geo } from '@fmgc/utils/Geo';
+import { courseToFixGuidance } from '@fmgc/guidance/lnav/CommonGeometry';
 import { PathVector, PathVectorType } from '../PathVector';
 
 export class TFLeg extends XFLeg {
@@ -88,8 +89,8 @@ export class TFLeg extends XFLeg {
 
         this.computedPath = [{
             type: PathVectorType.Line,
-            startPoint: startPoint ? startPoint : this.from.infos.coordinates,
-            endPoint: endPoint ? endPoint : this.to.infos.coordinates,
+            startPoint: startPoint || this.from.infos.coordinates,
+            endPoint: endPoint || this.to.infos.coordinates,
         }];
 
         this.isComputed = true;
@@ -179,47 +180,7 @@ export class TFLeg extends XFLeg {
     }
 
     getGuidanceParameters(ppos: LatLongData, trueTrack: Degrees): GuidanceParameters | null {
-        const fromLatLongAlt = this.from.infos.coordinates;
-        const toLatLongAlt = this.to.infos.coordinates;
-
-        // track angle error
-        const totalTrackDistance = Avionics.Utils.computeGreatCircleDistance(
-            fromLatLongAlt,
-            toLatLongAlt,
-        );
-        const alongTrackDistance = this.getAlongTrackDistanceTo(
-            fromLatLongAlt,
-            toLatLongAlt,
-            ppos,
-        );
-        const intermediatePoint = this.getIntermediatePoint(
-            fromLatLongAlt,
-            toLatLongAlt,
-            Math.min(Math.max(alongTrackDistance / totalTrackDistance, 0.05), 0.95),
-        );
-        const desiredTrack = Avionics.Utils.computeGreatCircleHeading(intermediatePoint, toLatLongAlt);
-        const trackAngleError = MathUtils.mod(desiredTrack - trueTrack + 180, 360) - 180;
-
-        // crosstrack error
-        const bearingAC = Avionics.Utils.computeGreatCircleHeading(fromLatLongAlt, ppos);
-        const bearingAB = Avionics.Utils.computeGreatCircleHeading(fromLatLongAlt, toLatLongAlt);
-        const distanceAC = Avionics.Utils.computeDistance(fromLatLongAlt, ppos);
-
-        const desiredOffset = 0;
-        const actualOffset = (
-            Math.asin(
-                Math.sin(Avionics.Utils.DEG2RAD * (distanceAC / Constants.EARTH_RADIUS_NM))
-                * Math.sin(Avionics.Utils.DEG2RAD * (bearingAC - bearingAB)),
-            ) * Avionics.Utils.RAD2DEG
-        ) * Constants.EARTH_RADIUS_NM;
-        const crossTrackError = desiredOffset - actualOffset;
-
-        return {
-            law: ControlLaw.LATERAL_PATH,
-            trackAngleError,
-            crossTrackError,
-            phiCommand: 0,
-        };
+        return courseToFixGuidance(ppos, trueTrack, this.course, this.fix.infos.coordinates);
     }
 
     getNominalRollAngle(_gs: Knots): Degrees {

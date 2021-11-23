@@ -8,12 +8,12 @@ import { RFLeg } from '@fmgc/guidance/lnav/legs/RF';
 import { TFLeg } from '@fmgc/guidance/lnav/legs/TF';
 import { Coordinates } from '@fmgc/flightplanning/data/geo';
 import { TurnDirection } from '@fmgc/types/fstypes/FSEnums';
-import { GuidanceParameters, LateralPathGuidance } from '@fmgc/guidance/ControlLaws';
+import { GuidanceParameters } from '@fmgc/guidance/ControlLaws';
 import { ControlLaw } from '@shared/autopilot';
 import { Geometry } from '@fmgc/guidance/Geometry';
+import { Guidable } from '@fmgc/guidance/Guidable';
 import { PathVector, PathVectorType } from '../PathVector';
 import { arcDistanceToGo, arcGuidance, courseToFixDistanceToGo, courseToFixGuidance, maxBank } from '../CommonGeometry';
-import { Guidable } from '@fmgc/guidance/Guidable';
 
 enum EntryType {
     Null,
@@ -58,12 +58,14 @@ export class Type5Transition extends Transition {
     private frozen = false;
 
     constructor(
-        private previousLeg: /* AFLeg | CFLeg |*/ DFLeg | RFLeg | TFLeg,
-        private nextLeg: HALeg | HFLeg | HMLeg,
+        previousLeg: /* AFLeg | CFLeg | */ DFLeg | RFLeg | TFLeg,
+        nextLeg: HALeg | HFLeg | HMLeg,
         _predictWithCurrentSpeed: boolean = true, // TODO we don't need this?
     ) {
         super();
-        //this.recomputeWithParameters(this.nextLeg.targetSpeed());
+        this.previousLeg = previousLeg;
+        this.nextLeg = nextLeg;
+        // this.recomputeWithParameters(this.nextLeg.targetSpeed());
     }
 
     get isNull(): boolean {
@@ -448,8 +450,9 @@ export class Type5Transition extends Transition {
         this.setHxEntry();
     }
 
-    getPseudoWaypointLocation(distanceBeforeTerminator: NauticalMiles): LatLongData | undefined {
-        return; // TODO
+    getPseudoWaypointLocation(_distanceBeforeTerminator: NauticalMiles): LatLongData | undefined {
+        // TODO
+        return undefined;
     }
 
     getPathStartPoint(): Coordinates {

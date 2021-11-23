@@ -13,15 +13,12 @@ import { IFLeg } from '@fmgc/guidance/lnav/legs/IF';
 import { DFLeg } from '@fmgc/guidance/lnav/legs/DF';
 import { Geometry } from './Geometry';
 import { FlightPlanManager } from '../flightplanning/FlightPlanManager';
-import { Type5Transition } from './lnav/transitions/Type5';
 
 /**
  * This class will guide the aircraft by predicting a flight path and
  * calculating the autopilot inputs to follow the predicted flight path.
  */
 export class GuidanceManager {
-    private lastTransition?: number;
-
     public flightPlanManager: FlightPlanManager;
 
     constructor(flightPlanManager: FlightPlanManager) {
@@ -134,7 +131,7 @@ export class GuidanceManager {
         const to = this.flightPlanManager.getWaypoint(activeIndex - 1, 0);
         const segment = this.flightPlanManager.getSegmentFromWaypoint(to, 0).type;
 
-        return GuidanceManager.legFromWaypoints(from, to, segment, activeIndex - 1);
+        return GuidanceManager.legFromWaypoints(from, to, activeIndex - 1, segment);
     }
 
     getActiveLeg(): Leg | null {
@@ -144,7 +141,7 @@ export class GuidanceManager {
         const to = this.flightPlanManager.getWaypoint(activeIndex, 0);
         const segment = this.flightPlanManager.getSegmentFromWaypoint(to, 0).type;
 
-        return GuidanceManager.legFromWaypoints(from, to, segment, activeIndex);
+        return GuidanceManager.legFromWaypoints(from, to, activeIndex, segment);
     }
 
     getNextLeg(): Leg | null {
@@ -154,20 +151,108 @@ export class GuidanceManager {
         const to = this.flightPlanManager.getWaypoint(activeIndex + 1, 0);
         const segment = this.flightPlanManager.getSegmentFromWaypoint(to, 0).type;
 
-        return GuidanceManager.legFromWaypoints(from, to, segment, activeIndex + 1);
+        return GuidanceManager.legFromWaypoints(from, to, activeIndex + 1, segment);
     }
 
-    getLeg(index: number): Leg | null {
-        const from = this.flightPlanManager.getWaypoint(index - 1, 0);
-        const to = this.flightPlanManager.getWaypoint(index, 0);
-        const segment = this.flightPlanManager.getSegmentFromWaypoint(to, 0).type;
+    getLeg(index: number, temp: boolean): Leg | null {
+        const flightPlanIndex = temp ? 1 : 0;
 
-        return GuidanceManager.legFromWaypoints(from, to, segment, index);
+        const from = this.flightPlanManager.getWaypoint(index - 1, flightPlanIndex);
+        const to = this.flightPlanManager.getWaypoint(index, flightPlanIndex);
+        const segment = this.flightPlanManager.getSegmentFromWaypoint(to, flightPlanIndex).type;
+
+        return GuidanceManager.legFromWaypoints(from, to, index, segment);
     }
 
-    /**
-     * The active leg path geometry, used for immediate autoflight.
-     */
+    updateActiveLegPathGeometry(geometry: Geometry): void {
+        const prevLeg = this.getPreviousLeg();
+        const activeLeg = this.getActiveLeg();
+        const nextLeg = this.getNextLeg();
+
+        if (prevLeg) {
+            const currentActiveLeg = geometry.legs.get(1);
+
+            const inboundTransition = TransitionPicker.forLegs(prevLeg, activeLeg);
+
+            if (currentActiveLeg) {
+                const activeLegBecamePrevLeg = currentActiveLeg.repr === prevLeg.repr;
+
+                if (activeLegBecamePrevLeg) {
+                    // Current active leg is the same as the new previous leg
+                    geometry.legs.set(0, currentActiveLeg);
+
+                    if (inboundTransition) {
+                        // Can we make the current outbound transition the new inbound transition ?
+                        const currentOutboundTrans = geometry.transitions.get(1);
+
+                        const outboundTransBecameInboundTrans = currentOutboundTrans.repr === inboundTransition.repr;
+
+                        if (outboundTransBecameInboundTrans) {
+                            // Current outbound transition is the same as the new inbound transition
+                            geometry.transitions.set(0, currentOutboundTrans);
+                        } else {
+                            // Current outbound transition is not the same as the new inbound transition
+                            inboundTransition.previousLeg = currentActiveLeg;
+
+                            geometry.transitions.set(0, inboundTransition);
+                        }
+                    }
+                } else {
+                    // Current active leg is not the same as the new previous leg
+                    geometry.legs.set(0, prevLeg);
+
+                    if (inboundTransition) {
+                        geometry.transitions.set(0, inboundTransition);
+                    }
+                }
+            } else {
+                // There is no current active leg
+                geometry.legs.set(0, prevLeg);
+
+                if (inboundTransition) {
+                    geometry.transitions.set(0, inboundTransition);
+                }
+            }
+        } else {
+            geometry.legs.delete(0);
+            geometry.transitions.delete(0);
+        }
+
+        if (activeLeg) {
+            const currentNextLeg = geometry.legs.get(2);
+
+            const outboundTransition = TransitionPicker.forLegs(activeLeg, nextLeg);
+
+            if (currentNextLeg) {
+                const nextLegBecameActiveLeg = currentNextLeg.repr === activeLeg.repr;
+
+                if (nextLegBecameActiveLeg) {
+                    // Current next leg is the same as the new active leg
+                    geometry.legs.set(1, currentNextLeg);
+                } else {
+                    // Current next leg is not the same as the new active leg
+                    geometry.legs.set(1, activeLeg);
+                }
+            } else {
+                // There is no current active leg
+                geometry.legs.set(1, activeLeg);
+            }
+
+            // Current outbound transition of the next leg never exists, so always set our own
+            outboundTransition.previousLeg = geometry.legs.get(1);
+            geometry.transitions.set(1, outboundTransition);
+        } else {
+            geometry.legs.delete(1);
+            geometry.transitions.delete(1);
+        }
+
+        if (nextLeg) {
+            geometry.legs.set(2, nextLeg);
+        } else {
+            geometry.legs.delete(2);
+        }
+    }
+
     getActiveLegPathGeometry(): Geometry | null {
         const prevLeg = this.getPreviousLeg();
         const activeLeg = this.getActiveLeg();
@@ -222,9 +307,10 @@ export class GuidanceManager {
         const wpCount = temp
             ? this.flightPlanManager.getFlightPlan(1).length
             : this.flightPlanManager.getCurrentFlightPlan().length;
+
         for (let i = wpCount - 1; (i >= activeIdx - 1); i--) {
             // Leg
-            const currentLeg = this.getLeg(i);
+            const currentLeg = this.getLeg(i, temp);
 
             if (currentLeg) {
                 legs.set(i, currentLeg);

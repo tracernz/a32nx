@@ -33,6 +33,10 @@ export interface PathVector {
      * conventional right-hand angle i.e. +ve = anti-clockwise, -ve = clockwise
      */
     sweepAngle?: Degrees,
+    /**
+     * optional text name, only for debug purposes
+     */
+    annotation?: string,
 }
 
 export interface ArcPathVector {

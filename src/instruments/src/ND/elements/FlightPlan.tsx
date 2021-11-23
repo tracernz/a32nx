@@ -1,28 +1,15 @@
 //  Copyright (c) 2021 FlyByWire Simulations
 //  SPDX-License-Identifier: GPL-3.0
 
-import React, { FC, memo, useCallback, useEffect, useState } from 'react';
-import { Geometry } from '@fmgc/guidance/Geometry';
-import { Type1Transition } from '@fmgc/guidance/lnav/transitions/Type1';
-import { GuidanceManager } from '@fmgc/guidance/GuidanceManager';
+import React, { FC, memo } from 'react';
 import { MathUtils } from '@shared/MathUtils';
 import { Layer } from '@instruments/common/utils';
 import { useSimVar } from '@instruments/common/simVars';
-import useInterval from '@instruments/common/useInterval';
 import { FlightPlanManager } from '@fmgc/flightplanning/FlightPlanManager';
-import { RFLeg } from '@fmgc/guidance/lnav/legs/RF';
 import { TFLeg } from '@fmgc/guidance/lnav/legs/TF';
 import { VMLeg } from '@fmgc/guidance/lnav/legs/VM';
-import { Transition } from '@fmgc/guidance/lnav/Transition';
 import { NdSymbol, NdSymbolTypeFlags } from '@shared/NavigationDisplay';
-import { useCurrentFlightPlan } from '@instruments/common/flightplan';
 import { Leg } from '@fmgc/guidance/lnav/legs/Leg';
-import { Type3Transition } from '@fmgc/guidance/lnav/transitions/Type3';
-import { Coordinates } from '@fmgc/flightplanning/data/geo';
-import { IFLeg } from '@fmgc/guidance/lnav/legs/IF';
-import { Type4Transition } from '@fmgc/guidance/lnav/transitions/Type4';
-import { Guidable } from '@fmgc/guidance/Guidable';
-import { PathVector, PathVectorType } from '@fmgc/guidance/lnav/PathVector';
 import { HALeg, HFLeg, HMLeg, HxLegGuidanceState } from '@fmgc/guidance/lnav/legs/HX';
 import { MapParameters } from '../utils/MapParameters';
 
@@ -38,62 +25,12 @@ export type FlightPathProps = {
     symbols: NdSymbol[],
     flightPlanManager: FlightPlanManager,
     mapParams: MapParameters,
+    mapParamsVersion: number,
     debug: boolean,
     type: FlightPlanType,
 }
 
-export const FlightPlan: FC<FlightPathProps> = memo(({ x = 0, y = 0, symbols, flightPlanManager, mapParams, debug = false, type = FlightPlanType.Nav }) => {
-    const [guidanceManager] = useState(() => new GuidanceManager(flightPlanManager));
-    const [flightPlanVersion] = useSimVar(FlightPlanManager.FlightPlanVersionKey, 'number', 1_000);
-    const [tempGeometry, setTempGeometry] = useState(() => guidanceManager.getMultipleLegGeometry(true));
-    const [activeGeometry, setActiveGeometry] = useState(() => guidanceManager.getMultipleLegGeometry());
-
-    const [geometry, setGeometry] = type === FlightPlanType.Temp
-        ? [tempGeometry, setTempGeometry]
-        : [activeGeometry, setActiveGeometry];
-
-    const recomputeGeometry = useCallback(() => {
-        const tas = SimVar.GetSimVarValue('AIRSPEED TRUE', 'Knots');
-        const gs = SimVar.GetSimVarValue('GPS GROUND SPEED', 'Knots');
-
-        const ppos = {
-            lat: SimVar.GetSimVarValue('PLANE LATITUDE', 'Degrees') ?? 0,
-            long: SimVar.GetSimVarValue('PLANE LONGITUDE', 'Degrees') ?? 0,
-        };
-
-        const activeIdx = type === FlightPlanType.Temp
-            ? flightPlanManager.getFlightPlan(1).activeWaypointIndex
-            : flightPlanManager.getCurrentFlightPlan().activeWaypointIndex;
-
-        if (tas !== null && gs !== null) {
-            geometry?.recomputeWithParameters(tas, gs, ppos, activeIdx, 0);
-        }
-    }, [type, flightPlanManager, geometry]);
-
-    // Create new geometry for new flight plan versions
-    useEffect(() => {
-        if (type === FlightPlanType.Temp) {
-            setGeometry(guidanceManager.getMultipleLegGeometry(true));
-        } else {
-            setGeometry(guidanceManager.getMultipleLegGeometry());
-        }
-
-        recomputeGeometry();
-    }, [flightPlanVersion]);
-
-    // Recompute geometry every 5 seconds
-    useInterval(() => recomputeGeometry(), 5_000, { additionalDeps: [type, flightPlanManager, geometry] });
-
-    useCurrentFlightPlan();
-
-    const [flightPath, setFlightPath] = useState<string>();
-
-    useEffect(() => {
-        if (geometry && geometry.isComputed && mapParams.valid) {
-            setFlightPath(makePathFromGeometry(geometry, mapParams));
-        }
-    });
-
+export const FlightPlan: FC<FlightPathProps> = memo(({ x = 0, y = 0, symbols, mapParams }) => {
     if (!mapParams.valid) {
         return null;
     }
@@ -112,16 +49,23 @@ export const FlightPlan: FC<FlightPathProps> = memo(({ x = 0, y = 0, symbols, fl
                         x={Number(MathUtils.fastToFixed(position[0], 1))}
                         y={Number(MathUtils.fastToFixed(position[1], 1))}
                         type={symbol.type}
-                        mapParams={mapParams}
                     />
                 );
             })}
-            <g id="flight-path">
-                <path d={flightPath} className="shadow" strokeWidth={2.5} fill="none" strokeDasharray="15 10" />
-                <path d={flightPath} className={type === FlightPlanType.Temp ? 'Yellow' : 'Green'} strokeWidth={2} fill="none" strokeDasharray={type === FlightPlanType.Nav ? '' : '15 10'} />
-            </g>
             {symbols.map((symbol) => {
                 const position = mapParams.coordinatesToXYy(symbol.location);
+
+                let endPosition;
+                if (symbol.type & (NdSymbolTypeFlags.FlightPlanVectorLine)) {
+                    endPosition = mapParams.coordinatesToXYy(symbol.lineEnd!);
+                } else if (symbol.type & (NdSymbolTypeFlags.FlightPlanVectorArc)) {
+                    endPosition = mapParams.coordinatesToXYy(symbol.arcEnd!);
+                }
+
+                const radius = symbol.arcRadius ? mapParams.nmToPx * symbol.arcRadius : undefined;
+
+                const deltaX = endPosition ? endPosition[0] - position[0] : undefined;
+                const deltaY = endPosition ? endPosition[1] - position[1] : undefined;
 
                 return (
                     <SymbolMarker
@@ -129,31 +73,20 @@ export const FlightPlan: FC<FlightPathProps> = memo(({ x = 0, y = 0, symbols, fl
                         ident={symbol.ident}
                         x={Number(MathUtils.fastToFixed(position[0], 1))}
                         y={Number(MathUtils.fastToFixed(position[1], 1))}
+                        endX={deltaX !== undefined ? Number(MathUtils.fastToFixed(deltaX, 1)) : undefined}
+                        endY={deltaY !== undefined ? Number(MathUtils.fastToFixed(deltaY, 1)) : undefined}
                         type={symbol.type}
                         length={symbol.length}
                         direction={symbol.direction}
                         constraints={symbol.constraints}
                         radials={symbol.radials}
                         radii={symbol.radii}
+                        arcSweep={symbol.arcSweepAngle}
+                        arcRadius={radius}
                         mapParams={mapParams}
                     />
                 );
             })}
-            {debug && !!geometry && (
-                <>
-                    {
-                        Array.from(geometry.legs.values()).map((leg) => (
-                            <DebugLeg leg={leg} mapParams={mapParams} />
-                        ))
-                    }
-                    {
-                        Array.from(geometry.transitions.values()).map((transition) => (
-                            <DebugTransition transition={transition} mapParams={mapParams} />
-                        ))
-                    }
-                </>
-
-            )}
         </Layer>
     );
 });
@@ -273,16 +206,20 @@ interface SymbolMarkerProps {
     ident: string,
     x: number,
     y: number,
+    endX?: number,
+    endY?: number,
     type: NdSymbolTypeFlags,
     constraints?: string[],
     length?: number,
     direction?: number,
     radials?: number[],
     radii?: number[],
+    arcSweep?: Degrees,
+    arcRadius?: number,
     mapParams: MapParameters,
 }
 
-const SymbolMarker: FC<SymbolMarkerProps> = memo(({ ident, x, y, type, constraints, length, direction, radials, radii, mapParams }) => {
+const SymbolMarker: FC<SymbolMarkerProps> = memo(({ ident, x, y, endX, endY, arcRadius, arcSweep, type, constraints, length, direction, radials, radii, mapParams }) => {
     let colour = 'White';
     let shadow = true;
     // todo airport as well if in flightplan
@@ -292,7 +229,7 @@ const SymbolMarker: FC<SymbolMarkerProps> = memo(({ ident, x, y, type, constrain
         colour = 'White';
     } else if (type & NdSymbolTypeFlags.Tuned) {
         colour = 'Cyan';
-    } else if (type & (NdSymbolTypeFlags.FlightPlan | NdSymbolTypeFlags.FixInfo)) {
+    } else if (type & (NdSymbolTypeFlags.FlightPlan | NdSymbolTypeFlags.ActiveFlightPlanVector | NdSymbolTypeFlags.FixInfo)) {
         colour = 'Green';
     } else if (type & NdSymbolTypeFlags.EfisOption) {
         colour = 'Magenta';
@@ -301,6 +238,7 @@ const SymbolMarker: FC<SymbolMarkerProps> = memo(({ ident, x, y, type, constrain
 
     const elements: JSX.Element[] = [];
 
+    // FIX INFO
     if (type & NdSymbolTypeFlags.FixInfo) {
         if (radii !== undefined) {
             for (const radius of radii) {
@@ -323,6 +261,7 @@ const SymbolMarker: FC<SymbolMarkerProps> = memo(({ ident, x, y, type, constrain
                 );
             }
         }
+
         if (radials !== undefined) {
             for (const bearing of radials) {
                 const rotation = mapParams.rotation(bearing) * Math.PI / 180;
@@ -343,6 +282,7 @@ const SymbolMarker: FC<SymbolMarkerProps> = memo(({ ident, x, y, type, constrain
     }
 
     let showIdent = false;
+    let identYOffset = 0;
     if (type & NdSymbolTypeFlags.VorDme) {
         elements.push(<VorDmeMarker colour={colour} />);
         showIdent = true;
@@ -376,6 +316,31 @@ const SymbolMarker: FC<SymbolMarkerProps> = memo(({ ident, x, y, type, constrain
     } else if (type & (NdSymbolTypeFlags.Waypoint | NdSymbolTypeFlags.FlightPlan | NdSymbolTypeFlags.FixInfo)) {
         showIdent = true;
         elements.push(<WaypointMarker colour={colour} />);
+    } else if (type & (NdSymbolTypeFlags.FlightPlanVectorLine)) {
+        showIdent = false;
+
+        elements.push(
+            <path d={`M 0 0 l ${endX} ${endY}`} className={colour} strokeWidth={2} />,
+        );
+    } else if (type & (NdSymbolTypeFlags.FlightPlanVectorArc)) {
+        showIdent = false;
+
+        if (!arcRadius) {
+            return null;
+        }
+
+        const pathRadius = arcRadius!.toFixed(2);
+
+        elements.push(
+            <path d={`M 0 0 A ${pathRadius} ${pathRadius} 0 ${Math.abs(arcSweep!) >= 180 ? 1 : 0} ${arcSweep! > 0 ? 1 : 0} ${endX} ${endY}`} className={colour} strokeWidth={2} />,
+        );
+    } else if (type & (NdSymbolTypeFlags.FlightPlanVectorDebugPoint)) {
+        showIdent = true;
+        identYOffset = -25;
+
+        elements.push(
+            <path d="M 0 0 l -20 0 h 40 m -20 20 v -40" className={colour} strokeWidth={2} />,
+        );
     } else if (type & (NdSymbolTypeFlags.PwpTopOfDescent)) {
         showIdent = false;
         elements.push(
@@ -419,7 +384,7 @@ const SymbolMarker: FC<SymbolMarkerProps> = memo(({ ident, x, y, type, constrain
 
     if (showIdent) {
         elements.push(
-            <text x={15} y={-6} fontSize={20} className={`${colour}${shadow ? ' shadow' : ''}`}>
+            <text x={15} y={-6 + identYOffset} fontSize={20} className={`${colour}${shadow ? ' shadow' : ''}`}>
                 {ident}
             </text>,
         );
@@ -470,6 +435,7 @@ export type DebugLegProps<TLeg extends Leg> = {
     mapParams: MapParameters,
 };
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const DebugLeg: FC<DebugLegProps<Leg>> = ({ leg, mapParams }) => {
     if (leg instanceof TFLeg) {
         return <DebugTFLeg leg={leg} mapParams={mapParams} />;
@@ -565,303 +531,3 @@ const DebugHXLeg: FC<DebugLegProps<HALeg | HFLeg | HMLeg>> = ({ leg, mapParams }
         </>
     );
 };
-
-export type DebugTransitionProps = {
-    transition: Transition,
-    mapParams: MapParameters,
-}
-
-const DebugTransition: FC<DebugTransitionProps> = ({ transition, mapParams }) => {
-    if (!(transition instanceof Type1Transition)) {
-        return null;
-    }
-
-    const inbound = transition.getTurningPoints()[0];
-    const outbound = transition.getTurningPoints()[1];
-
-    const [fromX, fromY] = mapParams.coordinatesToXYy(inbound);
-    const [toX, toY] = mapParams.coordinatesToXYy(outbound);
-
-    const [infoX, infoY] = [
-        Math.round(Math.min(fromX, toX) + (Math.abs(toX - fromX) / 2) + 5),
-        Math.round(Math.min(fromY, toY) + (Math.abs(toY - fromY) / 2)),
-    ];
-
-    let transitionType;
-    if (transition instanceof Type1Transition) {
-        transitionType = 'Type 1';
-    }
-
-    return (
-        <>
-            <text fill="yellow" x={infoX} y={infoY} fontSize={16}>
-                {transitionType}
-            </text>
-        </>
-    );
-};
-
-/**
- *
- * @param geometry {Geometry}
- * @param mapParams {MapParameters}
- */
-function makePathFromGeometry(geometry: Geometry, mapParams: MapParameters): string {
-    const path: string[] = [];
-
-    for (const [i, leg] of geometry.legs.entries()) {
-        const inbound = geometry.transitions.get(i - 1) ?? geometry.legs.get(i - 1);
-        const outbound = geometry.transitions.get(i) ?? geometry.legs.get(i + 1);
-
-        if (!inbound) {
-            if (DEBUG) {
-                console.error(`[FMS/Geometry] No inbound guidable for leg '${leg.repr}'.`);
-            }
-            break;
-        }
-
-        if (inbound instanceof Transition) {
-            const pathVectors = inbound.predictedPath;
-            if (pathVectors instanceof Array) {
-                path.push(...drawPathVectors(mapParams, pathVectors));
-            } else {
-                // TODO replace with path vectors on all transition types
-                //path.push(...drawTransition(mapParams, inbound));
-            }
-        }
-
-        const legPathVectors = leg.predictedPath;
-        // TODO remove special case... maybe need special path vector endpoint for infinite legs
-        if (leg instanceof VMLeg) {
-            if (inbound) {
-                const fromLla = inbound.getPathEndPoint()!;
-
-                const farAwayPoint = Avionics.Utils.bearingDistanceToCoordinates(
-                    leg.inboundCourse,
-                    mapParams.nmRadius + 2,
-                    fromLla.lat,
-                    fromLla.long,
-                );
-
-                path.push(...drawLine(
-                    mapParams,
-                    fromLla,
-                    farAwayPoint,
-                ));
-            }
-        } else if (legPathVectors instanceof Array) {
-            path.push(...drawPathVectors(mapParams, legPathVectors));
-        } else {
-            //path.push(...drawLeg(mapParams, leg, inbound, outbound));
-        }
-    }
-
-    return path.join(' ');
-}
-
-/**
- *
- * @param mapParams ND map parameters for scaling etc.
- * @param pathVectors predicted path from the guidables to draw
- * @returns
- */
-function drawPathVectors(mapParams: MapParameters, pathVectors: PathVector[]): string[] {
-    const path: string[] = [];
-
-    for (const vector of pathVectors) {
-        const [inX, inY] = mapParams.coordinatesToXYy(vector.startPoint);
-        let x = MathUtils.fastToFixed(inX, 1);
-        let y = MathUtils.fastToFixed(inY, 1);
-        path.push(`M ${x} ${y}`);
-
-        const inOutOfBounds = Math.abs(inX) > 1000 || Math.abs(inY) > 1000;
-
-        switch (vector.type) {
-        case PathVectorType.Line: {
-            const [outX, outY] = mapParams.coordinatesToXYy(vector.endPoint!);
-            if (inOutOfBounds && (Math.abs(outX) > 1000 || Math.abs(outY) > 1000)) {
-                continue;
-            }
-            x = MathUtils.fastToFixed(outX, 1);
-            y = MathUtils.fastToFixed(outY, 1);
-            path.push(`L ${x} ${y}`);
-            break;
-        }
-        case PathVectorType.Arc: {
-            const r = Avionics.Utils.computeGreatCircleDistance(vector.centrePoint!, vector.startPoint) * mapParams.nmToPx;
-            const [outX, outY] = mapParams.coordinatesToXYy(vector.endPoint!);
-            if (inOutOfBounds && (Math.abs(outX) > 1000 || Math.abs(outY) > 1000)) {
-                continue;
-            }
-            x = MathUtils.fastToFixed(outX, 1);
-            y = MathUtils.fastToFixed(outY, 1);
-            path.push(`A ${r} ${r} 0 ${Math.abs(vector.sweepAngle!) >= 180 ? 1 : 0} ${vector.sweepAngle! > 0 ? 1 : 0} ${x} ${y}`);
-            break;
-        }
-        case PathVectorType.DebugPoint: {
-            path.push('m-10,0 l20,0 m-10,-10 l0,20');
-            break;
-        }
-        default:
-        }
-    }
-
-    return path;
-}
-
-/**
- * @deprecated Use path vectors
- */
-function drawLeg(mapParams: MapParameters, leg: Leg, inbound: Guidable, outbound?: Guidable) {
-    const path: string[] = [];
-
-    if (leg instanceof RFLeg) {
-        path.push(...drawArc(
-            mapParams,
-            leg.from.infos.coordinates,
-            leg.to.infos.coordinates,
-            leg.radius,
-            leg.angle,
-            leg.clockwise,
-        ));
-    } else if (leg instanceof IFLeg) {
-        // Do nothing
-    } else {
-        // Draw the orthodromic path of the leg
-
-        path.push(...drawLine(
-            mapParams,
-            inbound.getPathEndPoint()!,
-            outbound instanceof Type1Transition ? outbound.getTurningPoints()[0] : leg.getPathEndPoint()!,
-        ));
-    }
-
-    return path;
-}
-
-/**
- * @deprecated Use path vectors
- */
-function drawTransition(mapParams: MapParameters, transition: Transition): string[] {
-    const path: string[] = [];
-
-    const [itp, ftp] = transition.getTurningPoints();
-
-    if (transition instanceof Type3Transition && !transition.isArc) {
-        // TODO draw line
-        return [];
-    }
-
-    if (transition instanceof Type1Transition || transition instanceof Type3Transition) {
-        path.push(...drawArc(
-            mapParams,
-            itp,
-            ftp,
-            transition.radius,
-            transition.angle,
-            transition.clockwise,
-        ));
-    }
-
-    if (transition instanceof Type4Transition) {
-        if (transition.hasArc) {
-            if (DEBUG) {
-                path.push(...drawDebugPoint(mapParams, itp));
-                path.push(...drawDebugPoint(mapParams, transition.arcCentrePoint));
-                path.push(...drawDebugPoint(mapParams, ftp));
-            }
-
-            path.push(...drawArc(
-                mapParams,
-                itp,
-                ftp,
-                transition.radius,
-                transition.arcSweepAngle,
-                transition.clockwise,
-            ));
-        }
-
-        path.push(...drawLine(mapParams, transition.lineStartPoint, transition.lineEndPoint));
-    }
-
-    return path;
-}
-
-/**
- * @deprecated Use path vectors
- */
-function drawArc(mapParams: MapParameters, itp: Coordinates, ftp: Coordinates, radius: NauticalMiles, sweepAngle: Degrees, clockwise: boolean): string[] {
-    const path: string[] = [];
-
-    let x;
-    let y;
-
-    // Move to inbound point
-    const [inX, inY] = mapParams.coordinatesToXYy(itp);
-    x = MathUtils.fastToFixed(inX, 1);
-    y = MathUtils.fastToFixed(inY, 1);
-
-    path.push(`M ${x} ${y}`);
-
-    const r = MathUtils.fastToFixed(radius * mapParams.nmToPx, 2);
-
-    // Draw arc to outbound point
-    const [outX, outY] = mapParams.coordinatesToXYy(ftp);
-    x = MathUtils.fastToFixed(outX, 1);
-    y = MathUtils.fastToFixed(outY, 1);
-    const cw = clockwise;
-
-    path.push(`A ${r} ${r} 0 ${sweepAngle >= 180 ? 1 : 0} ${cw ? 1 : 0} ${x} ${y}`);
-
-    return path;
-}
-
-/**
- * @deprecated Use path vectors
- */
-function drawLine(mapParams: MapParameters, start: Coordinates, end: Coordinates): string[] {
-    const path: string[] = [];
-
-    let x;
-    let y;
-
-    // Move to start point
-    const [fromX, fromY] = mapParams.coordinatesToXYy(start);
-
-    x = MathUtils.fastToFixed(fromX, 1);
-    y = MathUtils.fastToFixed(fromY, 1);
-
-    path.push(`M ${x} ${y}`);
-
-    // Move to end point
-    const [toX, toY] = mapParams.coordinatesToXYy(end);
-
-    x = MathUtils.fastToFixed(toX, 1);
-    y = MathUtils.fastToFixed(toY, 1);
-
-    path.push(`L ${x} ${y}`);
-
-    return path;
-}
-
-/**
- * @deprecated Use path vectors
- */
-function drawDebugPoint(mapParams: MapParameters, point: Coordinates): string[] {
-    const path: string[] = [];
-
-    // Move to point
-    const [pX, pY] = mapParams.coordinatesToXYy(point);
-    const x = MathUtils.fastToFixed(pX, 1);
-    const y = MathUtils.fastToFixed(pY, 1);
-
-    path.push(`M ${x} ${y}`);
-
-    // Draw cross
-    path.push('m 0 -10');
-    path.push('v 20');
-    path.push('m -10 -10');
-    path.push('h 20');
-
-    return path;
-}

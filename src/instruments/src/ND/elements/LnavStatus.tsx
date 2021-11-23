@@ -10,7 +10,7 @@ export const LnavStatus: FC = () => {
     });
 
     return (
-        <Layer x={50} y={300}>
+        <Layer x={50} y={280}>
             {strings.map((line, i) => (
                 <text x={0} y={(i * 25)} fill="magenta" fontSize={20}>{line}</text>
             ))}

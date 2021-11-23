@@ -5,6 +5,7 @@ import { SegmentType } from '@fmgc/flightplanning/FlightPlanSegment';
 import { GuidanceParameters } from '@fmgc/guidance/ControlLaws';
 import { XFLeg } from '@fmgc/guidance/lnav/legs/XF';
 import { PathVector } from '@fmgc/guidance/lnav/PathVector';
+import { Leg } from '@fmgc/guidance/lnav/legs/Leg';
 
 export class IFLeg extends XFLeg {
     constructor(
@@ -30,8 +31,14 @@ export class IFLeg extends XFLeg {
         return this.fix.infos.coordinates;
     }
 
-    recomputeWithParameters(_isActive: boolean, _tas: Knots, _gs: Knots, _ppos: Coordinates, _previousGuidable: Guidable, _nextGuidable: Guidable) {
-        // Do nothing
+    private nextGuidable: Leg | undefined;
+
+    recomputeWithParameters(_isActive: boolean, _tas: Knots, _gs: Knots, _ppos: Coordinates, _previousGuidable: Guidable, nextGuidable: Guidable) {
+        if (!(nextGuidable instanceof Leg)) {
+            throw new Error(`IF nextGuidable must be a leg (is ${nextGuidable.constructor})`);
+        }
+
+        this.nextGuidable = nextGuidable as Leg;
     }
 
     get altitudeConstraint(): AltitudeConstraint | undefined {
@@ -54,8 +61,8 @@ export class IFLeg extends XFLeg {
         return undefined;
     }
 
-    getGuidanceParameters(_ppos: Coordinates, _trueTrack: Degrees): GuidanceParameters | undefined {
-        return undefined;
+    getGuidanceParameters(ppos: Coordinates, trueTrack: Degrees): GuidanceParameters | undefined {
+        return this.nextGuidable.getGuidanceParameters(ppos, trueTrack);
     }
 
     getNominalRollAngle(_gs): Degrees | undefined {

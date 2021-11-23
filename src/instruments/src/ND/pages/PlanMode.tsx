@@ -1,6 +1,5 @@
 import React, { FC, memo, useEffect, useState } from 'react';
-import { useFlightPlanManager } from '@instruments/common/flightplan';
-import { MathUtils } from '@shared/MathUtils';
+import { useCurrentFlightPlan, useFlightPlanManager } from '@instruments/common/flightplan';
 import { useSimVar } from '@instruments/common/simVars';
 import { Coordinates } from '@fmgc/flightplanning/data/geo';
 import { NdSymbol } from '@shared/NavigationDisplay';
@@ -22,27 +21,21 @@ export const PlanMode: FC<PlanModeProps> = ({ symbols, adirsAlign, rangeSetting,
 
     const [selectedWaypointIndex] = useSimVar('L:A32NX_SELECTED_WAYPOINT', 'number', 50);
     const [showTmpFplan] = useSimVar('L:MAP_SHOW_TEMPORARY_FLIGHT_PLAN', 'bool');
-    const [selectedWaypoint, setSelectedWaypoint] = useState<WayPoint>();
     const [trueHeading] = useSimVar('PLANE HEADING DEGREES TRUE', 'degrees');
     const [fmaLatMode] = useSimVar('L:A32NX_FMA_LATERAL_MODE', 'enum', 200);
     const [fmaLatArmed] = useSimVar('L:A32NX_FMA_LATERAL_ARMED', 'enum', 200);
 
-    useEffect(() => {
-        setSelectedWaypoint(flightPlanManager.getCurrentFlightPlan().waypoints[selectedWaypointIndex]);
-    }, [selectedWaypointIndex]);
+    const [mapParams] = useState<MapParameters>(new MapParameters());
 
-    const [mapParams] = useState(() => {
-        const params = new MapParameters();
-        params.compute(selectedWaypoint?.infos.coordinates ?? ppos, rangeSetting / 2, 250, 0);
-
-        return params;
-    });
+    useCurrentFlightPlan();
 
     useEffect(() => {
-        if (selectedWaypoint) {
-            mapParams.compute(selectedWaypoint.infos.coordinates, rangeSetting / 2, 250, 0);
+        const waypoint = flightPlanManager.getCurrentFlightPlan().waypoints[selectedWaypointIndex];
+
+        if (mapParams && waypoint) {
+            mapParams.compute(waypoint.infos.coordinates, rangeSetting / 2, 250, 0);
         }
-    }, [selectedWaypoint?.infos.coordinates.lat, selectedWaypoint?.infos.coordinates.long, rangeSetting].map((n) => MathUtils.fastToFixed(n, 6)));
+    }, [selectedWaypointIndex]);
 
     let tmpFplan;
     if (showTmpFplan) {
@@ -84,7 +77,7 @@ export const PlanMode: FC<PlanModeProps> = ({ symbols, adirsAlign, rangeSetting,
                 {tmpFplan}
             </g>
 
-            {adirsAlign && !mapHidden && (
+            {adirsAlign && !mapHidden && mapParams.valid && (
                 <Plane location={ppos} heading={trueHeading} mapParams={mapParams} />
             )}
 

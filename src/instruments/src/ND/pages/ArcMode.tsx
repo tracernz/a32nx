@@ -68,6 +68,7 @@ export const ArcMode: React.FC<ArcModeProps> = ({ symbols, adirsAlign, rangeSett
                     flightPlanManager={flightPlanManager}
                     symbols={symbols}
                     mapParams={mapParams}
+                    mapParamsVersion={mapParams.version}
                     debug={false}
                     type={FlightPlanType.Temp}
                 />
@@ -88,6 +89,7 @@ export const ArcMode: React.FC<ArcModeProps> = ({ symbols, adirsAlign, rangeSett
                             flightPlanManager={flightPlanManager}
                             symbols={symbols}
                             mapParams={mapParams}
+                            mapParamsVersion={mapParams.version}
                             debug={false}
                             type={
                                 /* TODO FIXME: Check if intercepts active leg */

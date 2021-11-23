@@ -44,7 +44,7 @@ export class LnavDriver implements GuidanceComponent {
 
         const geometry = this.guidanceController.currentActiveLegPathGeometry;
 
-        if (geometry !== null) {
+        if (geometry) {
             const dtg = geometry.getDistanceToGo(this.ppos);
 
             const inboundTrans = geometry.transitions.get(0);

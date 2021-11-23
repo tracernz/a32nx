@@ -7,6 +7,8 @@ import { GuidanceManager } from '@fmgc/guidance/GuidanceManager';
 import { Coordinates } from '@fmgc/flightplanning/data/geo';
 import { Geometry } from '@fmgc/guidance/Geometry';
 import { GuidanceController } from '@fmgc/guidance/GuidanceController';
+import { PathVector, PathVectorType } from '@fmgc/guidance/lnav/PathVector';
+import { Geo } from '@fmgc/utils/Geo';
 import { RunwaySurface, VorType } from '../types/fstypes/FSEnums';
 import { NearbyFacilities } from './NearbyFacilities';
 
@@ -86,6 +88,8 @@ export class EfisSymbols {
 
         const activeFp = this.flightPlanManager.getCurrentFlightPlan();
         // TODO temp f-pln
+
+        const activeFpPathVectors = this.guidanceController.currentActiveLegPathGeometry.getAllPathVectors();
 
         const hasSuitableRunway = (airport: RawAirport): boolean => {
             for (const runway of airport.runways) {
@@ -320,6 +324,12 @@ export class EfisSymbols {
                 });
             }
 
+            // Path vectors
+
+            for (const vector of activeFpPathVectors) {
+                upsertSymbol(this.generatePathVectorSymbol(vector));
+            }
+
             const airports: [WayPoint, OneWayRunway][] = [
                 [activeFp.originAirfield, activeFp.getOriginRunway()],
                 [activeFp.destinationAirfield, activeFp.getDestinationRunway()],
@@ -377,6 +387,39 @@ export class EfisSymbols {
                 this.blockUpdate = false;
             }, 200);
         }
+    }
+
+    private generatePathVectorSymbol(vector: PathVector): NdSymbol {
+        let typeVectorPart: number;
+        if (vector.type === PathVectorType.Line) {
+            typeVectorPart = NdSymbolTypeFlags.FlightPlanVectorLine;
+        } else if (vector.type === PathVectorType.Arc) {
+            typeVectorPart = NdSymbolTypeFlags.FlightPlanVectorArc;
+        } else if (vector.type === PathVectorType.DebugPoint) {
+            typeVectorPart = NdSymbolTypeFlags.FlightPlanVectorDebugPoint;
+        }
+
+        // FIXME https://cdn.discordapp.com/attachments/845070631644430359/911876826169741342/brabs.gif
+        const id = Math.round(Math.random() * 10_000).toString();
+
+        const symbol: NdSymbol = {
+            databaseId: id,
+            ident: vector.type === PathVectorType.DebugPoint ? vector.annotation : id,
+            type: NdSymbolTypeFlags.ActiveFlightPlanVector | typeVectorPart,
+            location: vector.startPoint,
+        };
+
+        if (vector.type === PathVectorType.Line) {
+            symbol.lineEnd = vector.endPoint;
+        }
+
+        if (vector.type === PathVectorType.Arc) {
+            symbol.arcEnd = vector.endPoint;
+            symbol.arcRadius = Geo.getDistance(vector.startPoint, vector.centrePoint);
+            symbol.arcSweepAngle = vector.sweepAngle;
+        }
+
+        return symbol;
     }
 
     private vorDmeTypeFlag(type: VorType): NdSymbolTypeFlags {

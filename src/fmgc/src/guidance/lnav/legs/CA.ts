@@ -4,10 +4,12 @@ import { Guidable } from '@fmgc/guidance/Guidable';
 import { SegmentType } from '@fmgc/flightplanning/FlightPlanSegment';
 import { Leg } from '@fmgc/guidance/lnav/legs/Leg';
 import { GuidanceParameters } from '@fmgc/guidance/ControlLaws';
+import { LnavConfig } from '@fmgc/guidance/LnavConfig';
+import { courseToFixDistanceToGo, courseToFixGuidance } from '@fmgc/guidance/lnav/CommonGeometry';
 import { PathVector, PathVectorType } from '../PathVector';
 
 export class CALeg extends Leg {
-    public estimatedTermination: Coordinates;
+    public estimatedTermination: Coordinates | undefined;
 
     private computedPath: PathVector[] = [];
 
@@ -23,9 +25,7 @@ export class CALeg extends Leg {
         this.indexInFullPath = indexInFullPath;
     }
 
-    start: Coordinates;
-
-    private terminator: Coordinates | undefined;
+    private start: Coordinates;
 
     private inboundGuidable: Guidable | undefined;
 
@@ -34,34 +34,80 @@ export class CALeg extends Leg {
     }
 
     getPathEndPoint(): Coordinates | undefined {
-        this.start = this.inboundGuidable.getPathEndPoint();
-
-        const TEMP_DISTANCE = 2;
-
-        this.terminator = Avionics.Utils.bearingDistanceToCoordinates(
-            this.course,
-            TEMP_DISTANCE,
-            this.start.lat,
-            this.start.long,
-        );
-
-        return this.terminator;
+        return this.estimatedTermination;
     }
 
     get predictedPath(): PathVector[] {
         return this.computedPath;
     }
 
-    recomputeWithParameters(_isActive: boolean, _tas: Knots, _gs: Knots, _ppos: Coordinates, previousGuidable: Guidable, _nextGuidable: Guidable) {
+    private wasMovedByPpos = false;
+
+    recomputeWithParameters(isActive: boolean, _tas: Knots, _gs: Knots, ppos: Coordinates, previousGuidable: Guidable, _nextGuidable: Guidable) {
         this.inboundGuidable = previousGuidable;
+
+        // We assign / spread properties here to avoid copying references and causing bugs
+        if (isActive) {
+            this.wasMovedByPpos = true;
+
+            if (!this.start) {
+                this.start = { ...ppos };
+            } else {
+                this.start.lat = ppos.lat;
+                this.start.long = ppos.long;
+            }
+        } else if (!this.wasMovedByPpos) {
+            const newPreviousGuidableStart = previousGuidable?.getPathEndPoint();
+
+            if (newPreviousGuidableStart) {
+                if (!this.start) {
+                    this.start = { ...newPreviousGuidableStart };
+                } else {
+                    this.start.lat = newPreviousGuidableStart.lat;
+                    this.start.long = newPreviousGuidableStart.long;
+                }
+            }
+
+            this.recomputeEstimatedTermination();
+        }
 
         this.computedPath = [{
             type: PathVectorType.Line,
-            startPoint: this.inboundGuidable.getPathEndPoint(),
+            startPoint: this.start,
             endPoint: this.getPathEndPoint(),
         }];
 
+        if (LnavConfig.DEBUG_PREDICTED_PATH) {
+            this.computedPath.push(
+                {
+                    type: PathVectorType.DebugPoint,
+                    startPoint: this.start,
+                    annotation: 'CA START',
+                },
+                {
+                    type: PathVectorType.DebugPoint,
+                    startPoint: this.getPathEndPoint(),
+                    annotation: 'CA END',
+                },
+            );
+        }
+
         this.isComputed = true;
+    }
+
+    private recomputeEstimatedTermination() {
+        const ESTIMATED_VS = 1500; // feet per minute
+        const ESTIMATED_KTS = 175; // NM per hour
+
+        const minutesToAltitude = this.altitude / ESTIMATED_VS; // minutes
+        const distanceToAltitude = (minutesToAltitude / 60) * ESTIMATED_KTS; // NM
+
+        this.estimatedTermination = Avionics.Utils.bearingDistanceToCoordinates(
+            this.course,
+            distanceToAltitude,
+            this.start.lat,
+            this.start.long,
+        );
     }
 
     get altitudeConstraint(): AltitudeConstraint | undefined {
@@ -80,12 +126,12 @@ export class CALeg extends Leg {
         return undefined;
     }
 
-    getDistanceToGo(_ppos: Coordinates): NauticalMiles {
-        return undefined;
+    getDistanceToGo(ppos: Coordinates): NauticalMiles {
+        return courseToFixDistanceToGo(ppos, this.course, this.estimatedTermination);
     }
 
     getGuidanceParameters(ppos: Coordinates, trueTrack: Degrees): GuidanceParameters | undefined {
-        return undefined;
+        return courseToFixGuidance(ppos, trueTrack, this.course, this.estimatedTermination);
     }
 
     getNominalRollAngle(_gs: Knots): Degrees {
@@ -109,6 +155,6 @@ export class CALeg extends Leg {
     }
 
     get repr(): string {
-        return `FA(${this.course.toFixed(1)}°) TO ${Math.round(this.altitude)} FT`;
+        return `CA(${this.course.toFixed(1)}°) TO ${Math.round(this.altitude)} FT`;
     }
 }

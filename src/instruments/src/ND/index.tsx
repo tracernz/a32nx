@@ -107,7 +107,7 @@ const NavigationDisplay: React.FC = () => {
                     <SpeedIndicator adrs={airDataReferenceSource} irs={inertialReferenceSource} />
                     <WindIndicator adrs={airDataReferenceSource} irs={inertialReferenceSource} />
 
-                    {DEBUG && (
+                    {true && (
                         <LnavStatus />
                     )}
 

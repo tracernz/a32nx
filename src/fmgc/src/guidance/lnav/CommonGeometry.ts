@@ -1,9 +1,8 @@
 import { Coordinates } from '@fmgc/flightplanning/data/geo';
-import { ControlLaw, GuidanceParameters } from '@fmgc/guidance/ControlLaws';
+import { ControlLaw, LateralPathGuidance } from '@fmgc/guidance/ControlLaws';
 import { MathUtils } from '@shared/MathUtils';
 import { Constants } from '@shared/Constants';
 import { Convert } from '@shared/Convert';
-import { LateralPathGuidance } from '@fmgc/guidance/ControlLaws';
 
 /**
  * Compute the remaining distance around an arc
@@ -36,12 +35,14 @@ export function arcDistanceToGo(ppos: Coordinates, itp: Coordinates, centreFix: 
 
 /**
  * Compute guidance parameters for an arc path
+ *
  * @param ppos       current aircraft position
  * @param trueTrack  current aircraft track
  * @param itp        initial turning point for the arc
  * @param centreFix  centre of the arc
  * @param sweepAngle angle swept around the arc, +ve for clockwise
- * @returns {GuidanceParameters} lateral path law params
+ *
+ * @returns lateral path law params
  */
 export function arcGuidance(ppos: Coordinates, trueTrack: Degrees, itp: Coordinates, centreFix: Coordinates, sweepAngle: Degrees): LateralPathGuidance {
     const bearingPpos = Avionics.Utils.computeGreatCircleHeading(
@@ -134,7 +135,7 @@ export function courseToFixDistanceToGo(ppos: Coordinates, course: Degrees, fix:
     const pposToFixBearing = Avionics.Utils.computeGreatCircleHeading(ppos, fix);
     const pposToFixDist = Avionics.Utils.computeGreatCircleDistance(ppos, fix);
 
-    const pposToFixAngle = Avionics.Utils.diffAngle(course, pposToFixBearing);
+    const pposToFixAngle = Avionics.Utils.diffAngle(pposToFixBearing, course);
 
     return Math.max(0, pposToFixDist * Math.cos(pposToFixAngle * Math.PI / 180));
 }

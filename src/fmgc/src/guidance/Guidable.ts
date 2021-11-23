@@ -8,7 +8,19 @@ export abstract class Guidable {
 
     abstract getPathStartPoint(): Coordinates | undefined;
 
-    abstract getPathEndPoint(): Coordinates | undefined;
+    getPathEndPoint(): Coordinates | undefined {
+        if (this.predictedPath) {
+            for (let i = this.predictedPath.length - 1; i >= 0; i--) {
+                const vector = this.predictedPath[i];
+
+                if (vector.endPoint) {
+                    return vector.endPoint;
+                }
+            }
+        }
+
+        return undefined;
+    }
 
     isComputed = false;
 
