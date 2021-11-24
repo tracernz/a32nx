@@ -89,8 +89,6 @@ export class EfisSymbols {
         const activeFp = this.flightPlanManager.getCurrentFlightPlan();
         // TODO temp f-pln
 
-        const activeFpPathVectors = this.guidanceController.currentActiveLegPathGeometry.getAllPathVectors();
-
         const hasSuitableRunway = (airport: RawAirport): boolean => {
             for (const runway of airport.runways) {
                 switch (runway.surface) {
@@ -322,12 +320,6 @@ export class EfisSymbols {
                     type,
                     constraints: constraints.length > 0 ? constraints : undefined,
                 });
-            }
-
-            // Path vectors
-
-            for (const vector of activeFpPathVectors) {
-                upsertSymbol(this.generatePathVectorSymbol(vector));
             }
 
             const airports: [WayPoint, OneWayRunway][] = [

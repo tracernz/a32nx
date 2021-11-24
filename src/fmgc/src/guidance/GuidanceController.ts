@@ -4,6 +4,7 @@
 import { Geometry } from '@fmgc/guidance/Geometry';
 import { PseudoWaypoint } from '@fmgc/guidance/PsuedoWaypoint';
 import { PseudoWaypoints } from '@fmgc/guidance/lnav/PseudoWaypoints';
+import { EfisVectors } from '@fmgc/efis/EfisVectors';
 import { LnavDriver } from './lnav/LnavDriver';
 import { FlightPlanManager } from '../flightplanning/FlightPlanManager';
 import { GuidanceManager } from './GuidanceManager';
@@ -22,6 +23,8 @@ export class GuidanceController {
     public vnavDriver: VnavDriver;
 
     public pseudoWaypoints: PseudoWaypoints;
+
+    public efisVectors: EfisVectors;
 
     public currentActiveLegPathGeometry: Geometry | null;
 
@@ -48,6 +51,7 @@ export class GuidanceController {
         this.lnavDriver = new LnavDriver(this);
         this.vnavDriver = new VnavDriver(this);
         this.pseudoWaypoints = new PseudoWaypoints(this);
+        this.efisVectors = new EfisVectors(this);
     }
 
     init() {
@@ -93,6 +97,7 @@ export class GuidanceController {
             this.lnavDriver.update(deltaTime);
             this.vnavDriver.update(deltaTime);
             this.pseudoWaypoints.update(deltaTime);
+            this.efisVectors.update(deltaTime);
         } catch (e) {
             console.error('[FMS] Error during tick. See exception below.');
             console.error(e);

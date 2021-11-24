@@ -5,13 +5,13 @@ import React, { FC, memo } from 'react';
 import { MathUtils } from '@shared/MathUtils';
 import { Layer } from '@instruments/common/utils';
 import { useSimVar } from '@instruments/common/simVars';
-import { FlightPlanManager } from '@fmgc/flightplanning/FlightPlanManager';
 import { TFLeg } from '@fmgc/guidance/lnav/legs/TF';
 import { VMLeg } from '@fmgc/guidance/lnav/legs/VM';
-import { NdSymbol, NdSymbolTypeFlags } from '@shared/NavigationDisplay';
+import { EfisSide, NdFlightPlan, NdSymbol, NdSymbolTypeFlags } from '@shared/NavigationDisplay';
 import { Leg } from '@fmgc/guidance/lnav/legs/Leg';
 import { HALeg, HFLeg, HMLeg, HxLegGuidanceState } from '@fmgc/guidance/lnav/legs/HX';
 import { MapParameters } from '../utils/MapParameters';
+import { FlightPlanVectors } from './FlightPlanVectors';
 
 export enum FlightPlanType {
     Nav,
@@ -22,15 +22,14 @@ export enum FlightPlanType {
 export type FlightPathProps = {
     x?: number,
     y?: number,
+    side: EfisSide,
     symbols: NdSymbol[],
-    flightPlanManager: FlightPlanManager,
     mapParams: MapParameters,
     mapParamsVersion: number,
     debug: boolean,
-    type: FlightPlanType,
 }
 
-export const FlightPlan: FC<FlightPathProps> = memo(({ x = 0, y = 0, symbols, mapParams }) => {
+export const FlightPlan: FC<FlightPathProps> = memo(({ x = 0, y = 0, side, symbols, mapParams }) => {
     if (!mapParams.valid) {
         return null;
     }
@@ -52,6 +51,16 @@ export const FlightPlan: FC<FlightPathProps> = memo(({ x = 0, y = 0, symbols, ma
                     />
                 );
             })}
+
+            <FlightPlanVectors
+                x={0}
+                y={0}
+                mapParams={mapParams}
+                mapParamsVersion={mapParams.version}
+                side={side}
+                group={NdFlightPlan.ACTIVE}
+            />
+
             {symbols.map((symbol) => {
                 const position = mapParams.coordinatesToXYy(symbol.location);
 

@@ -50,10 +50,6 @@ export enum NdSymbolTypeFlags {
     FlightPlanVectorArc = 1 << 21,
     FlightPlanVectorDebugPoint = 1 << 22,
     ActiveFlightPlanVector = 1 << 23,
-    TemporaryFlightPlanVector = 1 << 24,
-    DashedFlightPlanVector = 1 << 25,
-    SecondaryFlightPlanVector = 1 << 26,
-    MissedFlightPlanVector = 1 << 27,
 }
 
 export interface NdSymbol {
@@ -70,4 +66,52 @@ export interface NdSymbol {
     constraints?: string[],
     radials?: number[],
     radii?: number[],
+}
+
+/**
+ * Possible flight plan vector groups to be transmitted to the ND.
+ *
+ * **NOTE:** this does not necessarily represent the current function of a transmitted flight plan. Those groups are sometimes used for other purposes than their name
+ * refers to, for example the DASHED flight plan being used to transmit the non-offset path of an active flight plan with an offset applied.
+ */
+export enum NdFlightPlan {
+    /**
+     * Solid green line
+     */
+    ACTIVE,
+
+    /**
+     * Dashed green line
+     */
+    DASHED,
+
+    /**
+     * Dashed yellow line
+     */
+    TEMPORARY,
+
+    /**
+     * Dimmed white line
+     */
+    SECONDARY,
+
+    /**
+     * Dashed dimmed white line
+     */
+    SECONDARY_DASHED,
+
+    /**
+     * Solid cyan line
+     */
+    MISSED,
+
+    /**
+     * Dashed cyan line
+     */
+    ALTERNATE,
+
+    /**
+     * Continuous yellow line
+     */
+    ACTIVE_EOSID,
 }

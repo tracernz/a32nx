@@ -5,7 +5,7 @@ import { MathUtils } from '@shared/MathUtils';
 import { useFlightPlanManager } from '@instruments/common/flightplan';
 import { RangeSetting, Mode, EfisSide, NdSymbol } from '@shared/NavigationDisplay';
 import { LateralMode } from '@shared/autopilot';
-import { FlightPlan, FlightPlanType } from '../elements/FlightPlan';
+import { FlightPlan } from '../elements/FlightPlan';
 import { MapParameters } from '../utils/MapParameters';
 import { RadioNeedle } from '../elements/RadioNeedles';
 import { ToWaypointIndicator } from '../elements/ToWaypointIndicator';
@@ -33,7 +33,6 @@ export const ArcMode: React.FC<ArcModeProps> = ({ symbols, adirsAlign, rangeSett
     const [selectedHeading] = useSimVar('L:A32NX_AUTOPILOT_HEADING_SELECTED', 'degrees');
     const [ilsCourse] = useSimVar('NAV LOCALIZER:3', 'degrees');
     const [lsDisplayed] = useSimVar(`L:BTN_LS_${side === 'L' ? 1 : 2}_FILTER_ACTIVE`, 'bool'); // TODO rename simvar
-    const [showTmpFplan] = useSimVar('L:MAP_SHOW_TEMPORARY_FLIGHT_PLAN', 'bool');
     const [fmaLatMode] = useSimVar('L:A32NX_FMA_LATERAL_MODE', 'enum', 200);
     const [fmaLatArmed] = useSimVar('L:A32NX_FMA_LATERAL_ARMED', 'enum', 200);
     const [groundSpeed] = useSimVar('GPS GROUND SPEED', 'Meters per second', 200);
@@ -59,21 +58,6 @@ export const ArcMode: React.FC<ArcModeProps> = ({ symbols, adirsAlign, rangeSett
     }, [ppos.lat, ppos.long, magHeading, rangeSetting].map((n) => MathUtils.fastToFixed(n, 6)));
 
     if (adirsAlign) {
-        let tmpFplan;
-        if (showTmpFplan) {
-            tmpFplan = (
-                <FlightPlan
-                    x={384}
-                    y={620}
-                    flightPlanManager={flightPlanManager}
-                    symbols={symbols}
-                    mapParams={mapParams}
-                    mapParamsVersion={mapParams.version}
-                    debug={false}
-                    type={FlightPlanType.Temp}
-                />
-            );
-        }
         return (
             <>
                 <Overlay
@@ -86,22 +70,13 @@ export const ArcMode: React.FC<ArcModeProps> = ({ symbols, adirsAlign, rangeSett
                         <FlightPlan
                             x={384}
                             y={620}
-                            flightPlanManager={flightPlanManager}
+                            side={side}
                             symbols={symbols}
                             mapParams={mapParams}
                             mapParamsVersion={mapParams.version}
                             debug={false}
-                            type={
-                                /* TODO FIXME: Check if intercepts active leg */
-                                (fmaLatMode === LateralMode.NONE
-                                    || fmaLatMode === LateralMode.HDG
-                                    || fmaLatMode === LateralMode.TRACK)
-                                && !fmaLatArmed
-                                    ? FlightPlanType.Dashed
-                                    : FlightPlanType.Nav
-                            }
                         />
-                        {tmpFplan}
+
                         { (((fmaLatMode === LateralMode.NONE
                             || fmaLatMode === LateralMode.HDG
                             || fmaLatMode === LateralMode.TRACK) && !fmaLatArmed) || !flightPlanManager.getCurrentFlightPlan().length) && (

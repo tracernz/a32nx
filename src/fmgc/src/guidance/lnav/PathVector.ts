@@ -6,37 +6,12 @@ export enum PathVectorType {
     DebugPoint,
 }
 
-export enum PathVectorColour {
+export enum DebugPointColour {
     White,
     Green,
     Yellow,
     Cyan,
     Magenta,
-}
-
-/**
- * path vectors are generated for the ND etc.
- */
-export interface PathVector {
-    type: PathVectorType,
-    colour?: PathVectorColour,
-    startPoint: Coordinates,
-    /**
-     * end point of line
-     */
-    endPoint?: Coordinates,
-    /**
-     * centre of arc
-     */
-    centrePoint?: Coordinates,
-    /**
-     * conventional right-hand angle i.e. +ve = anti-clockwise, -ve = clockwise
-     */
-    sweepAngle?: Degrees,
-    /**
-     * optional text name, only for debug purposes
-     */
-    annotation?: string,
 }
 
 export interface ArcPathVector {
@@ -52,3 +27,12 @@ export interface LinePathVector {
     startPoint: Coordinates,
     endPoint: Coordinates,
 }
+
+export interface DebugPointPathVector {
+    type: PathVectorType.DebugPoint,
+    startPoint: Coordinates,
+    annotation?: string,
+    colour?: DebugPointColour,
+}
+
+export type PathVector = LinePathVector | ArcPathVector | DebugPointPathVector
