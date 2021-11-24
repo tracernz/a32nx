@@ -128,9 +128,6 @@ export class GuidanceController {
 
         if (this.currentMultipleLegGeometry) {
             this.currentMultipleLegGeometry.recomputeWithParameters(tas, gs, this.lnavDriver.ppos, this.activeLegIndex, this.activeTransIndex);
-
-            this.vnavDriver.acceptMultipleLegGeometry(this.currentMultipleLegGeometry);
-            this.pseudoWaypoints.acceptMultipleLegGeometry(this.currentMultipleLegGeometry);
         }
     }
 
