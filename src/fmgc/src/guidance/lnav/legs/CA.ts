@@ -56,6 +56,10 @@ export class CALeg extends Leg {
                 this.start.lat = ppos.lat;
                 this.start.long = ppos.long;
             }
+
+            if (!this.estimatedTermination) {
+                this.recomputeEstimatedTermination();
+            }
         } else if (!this.wasMovedByPpos) {
             const newPreviousGuidableStart = previousGuidable?.getPathEndPoint();
 

@@ -11,8 +11,9 @@ import { LegType } from '@fmgc/types/fstypes/FSEnums';
 import { TransitionPicker } from '@fmgc/guidance/lnav/TransitionPicker';
 import { IFLeg } from '@fmgc/guidance/lnav/legs/IF';
 import { DFLeg } from '@fmgc/guidance/lnav/legs/DF';
-import { Geometry } from './Geometry';
+import { LnavConfig } from '@fmgc/guidance/LnavConfig';
 import { FlightPlanManager } from '../flightplanning/FlightPlanManager';
+import { Geometry } from './Geometry';
 
 /**
  * This class will guide the aircraft by predicting a flight path and
@@ -164,133 +165,76 @@ export class GuidanceManager {
         return GuidanceManager.legFromWaypoints(from, to, index, segment);
     }
 
-    updateActiveLegPathGeometry(geometry: Geometry): void {
-        const prevLeg = this.getPreviousLeg();
-        const activeLeg = this.getActiveLeg();
-        const nextLeg = this.getNextLeg();
+    updateGeometry(geometry: Geometry, activeIdx: number, wptCount: number): void {
+        if (LnavConfig.DEBUG_GEOMETRY) {
+            console.log('[Fms/Geometry/Update] Starting geometry update.');
+        }
 
-        if (prevLeg) {
-            const currentActiveLeg = geometry.legs.get(1);
+        for (let i = activeIdx; i < wptCount - 1; i++) {
+            const oldLeg = geometry.legs.get(i);
+            const newLeg = this.getLeg(i, false);
 
-            const inboundTransition = TransitionPicker.forLegs(prevLeg, activeLeg);
+            if (LnavConfig.DEBUG_GEOMETRY) {
+                console.log(`[FMS/Geometry/Update] Old leg #${i} = ${oldLeg?.repr ?? '<none>'}`);
+                console.log(`[FMS/Geometry/Update] New leg #${i} = ${newLeg?.repr ?? '<none>'}`);
+            }
 
-            if (currentActiveLeg) {
-                const activeLegBecamePrevLeg = currentActiveLeg.repr === prevLeg.repr;
+            const legsMatch = oldLeg?.repr === newLeg?.repr;
 
-                if (activeLegBecamePrevLeg) {
-                    // Current active leg is the same as the new previous leg
-                    geometry.legs.set(0, currentActiveLeg);
+            if (legsMatch) {
+                if (LnavConfig.DEBUG_GEOMETRY) {
+                    console.log('[FMS/Geometry/Update] Old and new leg are the same. Keeping old leg.');
+                }
+            } else {
+                if (LnavConfig.DEBUG_GEOMETRY) {
+                    if (!oldLeg) console.log('[FMS/Geometry/Update] No old leg. Adding new leg.');
+                    else if (!newLeg) console.log('[FMS/Geometry/Update] No new leg. Removing old leg.');
+                    else console.log('[FMS/Geometry/Update] Old and new leg are different. Keeping new leg.');
+                }
 
-                    if (inboundTransition) {
-                        // Can we make the current outbound transition the new inbound transition ?
-                        const currentOutboundTrans = geometry.transitions.get(1);
+                if (newLeg) {
+                    geometry.legs.set(i, newLeg);
 
-                        const outboundTransBecameInboundTrans = currentOutboundTrans.repr === inboundTransition.repr;
+                    const prevLeg = geometry.legs.get(i - 1);
 
-                        if (outboundTransBecameInboundTrans) {
-                            // Current outbound transition is the same as the new inbound transition
-                            geometry.transitions.set(0, currentOutboundTrans);
-                        } else {
-                            // Current outbound transition is not the same as the new inbound transition
-                            inboundTransition.previousLeg = currentActiveLeg;
+                    if (prevLeg) {
+                        const newInboundTransition = TransitionPicker.forLegs(prevLeg, newLeg);
 
-                            geometry.transitions.set(0, inboundTransition);
+                        if (LnavConfig.DEBUG_GEOMETRY) {
+                            console.log(`[FMS/Geometry/Update] Set new inbound transition for new leg (${newInboundTransition?.repr ?? '<none>'})`);
+                        }
+
+                        if (newInboundTransition) {
+                            geometry.transitions.set(i - 1, newInboundTransition);
                         }
                     }
                 } else {
-                    // Current active leg is not the same as the new previous leg
-                    geometry.legs.set(0, prevLeg);
-
-                    if (inboundTransition) {
-                        geometry.transitions.set(0, inboundTransition);
-                    }
-                }
-            } else {
-                // There is no current active leg
-                geometry.legs.set(0, prevLeg);
-
-                if (inboundTransition) {
-                    geometry.transitions.set(0, inboundTransition);
+                    geometry.legs.delete(i);
                 }
             }
-        } else {
-            geometry.legs.delete(0);
-            geometry.transitions.delete(0);
         }
 
-        if (activeLeg) {
-            const currentNextLeg = geometry.legs.get(2);
+        // Remove extra legs
 
-            const outboundTransition = TransitionPicker.forLegs(activeLeg, nextLeg);
+        const legsToTrim = wptCount - geometry.legs.size;
 
-            if (currentNextLeg) {
-                const nextLegBecameActiveLeg = currentNextLeg.repr === activeLeg.repr;
-
-                if (nextLegBecameActiveLeg) {
-                    // Current next leg is the same as the new active leg
-                    geometry.legs.set(1, currentNextLeg);
-                } else {
-                    // Current next leg is not the same as the new active leg
-                    geometry.legs.set(1, activeLeg);
-                }
-            } else {
-                // There is no current active leg
-                geometry.legs.set(1, activeLeg);
+        for (let i = (wptCount - 1) + legsToTrim; i > wptCount; i--) {
+            if (LnavConfig.DEBUG_GEOMETRY) {
+                console.log(`[FMS/Geometry/Update] Removed leg #${i} (${geometry.legs.get(i)}) because of trimming.`);
             }
 
-            // Current outbound transition of the next leg never exists, so always set our own
-            outboundTransition.previousLeg = geometry.legs.get(1);
-            geometry.transitions.set(1, outboundTransition);
-        } else {
-            geometry.legs.delete(1);
-            geometry.transitions.delete(1);
+            geometry.legs.delete(i);
+            geometry.transitions.delete(i - 1);
         }
 
-        if (nextLeg) {
-            geometry.legs.set(2, nextLeg);
-        } else {
-            geometry.legs.delete(2);
+        if (LnavConfig.DEBUG_GEOMETRY) {
+            console.log('[Fms/Geometry/Update] Done with geometry update.');
         }
-    }
-
-    getActiveLegPathGeometry(): Geometry | null {
-        const prevLeg = this.getPreviousLeg();
-        const activeLeg = this.getActiveLeg();
-        const nextLeg = this.getNextLeg();
-
-        if (!activeLeg) {
-            return null;
-        }
-
-        const legs = new Map<number, Leg>([[1, activeLeg]]);
-        const transitions = new Map<number, Transition>();
-
-        if (prevLeg) {
-            const transition = TransitionPicker.forLegs(prevLeg, activeLeg);
-
-            if (transition) {
-                transitions.set(0, transition);
-            }
-
-            legs.set(0, prevLeg);
-        }
-
-        if (nextLeg) {
-            const transition = TransitionPicker.forLegs(activeLeg, nextLeg);
-
-            if (transition) {
-                transitions.set(1, transition);
-            }
-
-            legs.set(2, nextLeg);
-        }
-
-        return new Geometry(transitions, legs);
     }
 
     /**
-     * The full leg path geometry, used for the ND and predictions on the F-PLN page.
-     */
+ * The full leg path geometry, used for the ND and predictions on the F-PLN page.
+ */
     getMultipleLegGeometry(temp? : boolean): Geometry | null {
         if (temp) {
             if (this.flightPlanManager.getFlightPlan(1) === undefined) {
@@ -309,7 +253,7 @@ export class GuidanceManager {
             : this.flightPlanManager.getCurrentFlightPlan().length;
 
         for (let i = wpCount - 1; (i >= activeIdx - 1); i--) {
-            // Leg
+        // Leg
             const currentLeg = this.getLeg(i, temp);
 
             if (currentLeg) {

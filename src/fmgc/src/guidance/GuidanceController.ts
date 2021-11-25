@@ -26,8 +26,6 @@ export class GuidanceController {
 
     public efisVectors: EfisVectors;
 
-    public currentActiveLegPathGeometry: Geometry | null;
-
     public currentMultipleLegGeometry: Geometry | null;
 
     public activeLegIndex: number;
@@ -60,7 +58,7 @@ export class GuidanceController {
         this.lnavDriver.ppos.lat = SimVar.GetSimVarValue('PLANE LATITUDE', 'degree latitude');
         this.lnavDriver.ppos.long = SimVar.GetSimVarValue('PLANE LONGITUDE', 'degree longitude');
 
-        this.generateNewGeometry();
+        this.generateNewGeometry(this.flightPlanManager.getActiveWaypointIndex(), this.flightPlanManager.getWaypoints().length);
 
         this.lnavDriver.init();
         this.vnavDriver.init();
@@ -74,13 +72,15 @@ export class GuidanceController {
     update(deltaTime: number) {
         this.geometryRecomputationTimer += deltaTime;
 
+        this.activeLegIndex = this.flightPlanManager.getActiveWaypointIndex();
+
         try {
             // Generate new geometry when flight plan changes
             const newFlightPlanVersion = this.flightPlanManager.currentFlightPlanVersion;
             if (newFlightPlanVersion !== this.lastFlightPlanVersion) {
                 this.lastFlightPlanVersion = newFlightPlanVersion;
 
-                this.generateNewGeometry();
+                this.generateNewGeometry(this.flightPlanManager.getActiveWaypointIndex(), this.flightPlanManager.getWaypoints().length);
             }
 
             if (this.geometryRecomputationTimer > GEOMETRY_RECOMPUTATION_TIMER) {
@@ -107,14 +107,12 @@ export class GuidanceController {
     /**
      * Called when the lateral flight plan is changed
      */
-    generateNewGeometry() {
-        if (this.currentActiveLegPathGeometry) {
-            this.guidanceManager.updateActiveLegPathGeometry(this.currentActiveLegPathGeometry);
+    generateNewGeometry(activeIdx: number, wptCount: number) {
+        if (this.currentMultipleLegGeometry) {
+            this.guidanceManager.updateGeometry(this.currentMultipleLegGeometry, activeIdx, wptCount);
         } else {
-            this.currentActiveLegPathGeometry = this.guidanceManager.getActiveLegPathGeometry();
+            this.currentMultipleLegGeometry = this.guidanceManager.getMultipleLegGeometry();
         }
-
-        this.currentMultipleLegGeometry = this.guidanceManager.getMultipleLegGeometry();
 
         this.recomputeGeometry();
 
@@ -126,10 +124,6 @@ export class GuidanceController {
     recomputeGeometry() {
         const tas = SimVar.GetSimVarValue('AIRSPEED TRUE', 'Knots');
         const gs = SimVar.GetSimVarValue('GPS GROUND SPEED', 'meters per second');
-
-        if (this.currentActiveLegPathGeometry) {
-            this.currentActiveLegPathGeometry.recomputeWithParameters(tas, gs, this.lnavDriver.ppos, this.activeLegIndex, this.activeTransIndex);
-        }
 
         if (this.currentMultipleLegGeometry) {
             this.currentMultipleLegGeometry.recomputeWithParameters(tas, gs, this.lnavDriver.ppos, this.activeLegIndex, this.activeTransIndex);

@@ -7,7 +7,7 @@ import { Layer } from '@instruments/common/utils';
 import { useSimVar } from '@instruments/common/simVars';
 import { TFLeg } from '@fmgc/guidance/lnav/legs/TF';
 import { VMLeg } from '@fmgc/guidance/lnav/legs/VM';
-import { EfisSide, NdFlightPlan, NdSymbol, NdSymbolTypeFlags } from '@shared/NavigationDisplay';
+import { EfisSide, EfisVectorsGroup, NdSymbol, NdSymbolTypeFlags } from '@shared/NavigationDisplay';
 import { Leg } from '@fmgc/guidance/lnav/legs/Leg';
 import { HALeg, HFLeg, HMLeg, HxLegGuidanceState } from '@fmgc/guidance/lnav/legs/HX';
 import { MapParameters } from '../utils/MapParameters';
@@ -52,14 +52,17 @@ export const FlightPlan: FC<FlightPathProps> = memo(({ x = 0, y = 0, side, symbo
                 );
             })}
 
-            <FlightPlanVectors
-                x={0}
-                y={0}
-                mapParams={mapParams}
-                mapParamsVersion={mapParams.version}
-                side={side}
-                group={NdFlightPlan.ACTIVE}
-            />
+            {Object.keys(EfisVectorsGroup).filter((it) => parseInt(it)).map((group) => (
+                <FlightPlanVectors
+                    key={EfisVectorsGroup[group]}
+                    x={0}
+                    y={0}
+                    mapParams={mapParams}
+                    mapParamsVersion={mapParams.version}
+                    side={side}
+                    group={parseInt(group) as EfisVectorsGroup}
+                />
+            ))}
 
             {symbols.map((symbol) => {
                 const position = mapParams.coordinatesToXYy(symbol.location);

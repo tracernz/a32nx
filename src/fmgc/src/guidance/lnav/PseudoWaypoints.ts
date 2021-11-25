@@ -84,24 +84,24 @@ export class PseudoWaypoints implements GuidanceComponent {
                 });
             }
 
-            for (let i = 0; i < 75; i++) {
-                const point = PseudoWaypoints.pointFromEndOfPath(geometry, this.guidanceController.vnavDriver.currentApproachProfile.decel + i / 2, `(BRUH${i}`);
-
-                if (point) {
-                    const [efisSymbolLla, distanceFromLegTermination, alongLegIndex] = point;
-
-                    newPseudoWaypoints.push({
-                        ident: `(BRUH${i})`,
-                        sequencingType: PseudoWaypointSequencingAction.TOD_REACHED,
-                        alongLegIndex,
-                        distanceFromLegTermination,
-                        efisSymbolFlag: NdSymbolTypeFlags.PwpTopOfDescent,
-                        efisSymbolLla,
-                        displayedOnMcdu: true,
-                        stats: PseudoWaypoints.computePseudoWaypointStats(`(BRUH${i})`, geometry.legs.get(alongLegIndex), distanceFromLegTermination),
-                    });
-                }
-            }
+            // for (let i = 0; i < 75; i++) {
+            //     const point = PseudoWaypoints.pointFromEndOfPath(geometry, this.guidanceController.vnavDriver.currentApproachProfile.decel + i / 2, `(BRUH${i}`);
+            //
+            //     if (point) {
+            //         const [efisSymbolLla, distanceFromLegTermination, alongLegIndex] = point;
+            //
+            //         newPseudoWaypoints.push({
+            //             ident: `(BRUH${i})`,
+            //             sequencingType: PseudoWaypointSequencingAction.TOD_REACHED,
+            //             alongLegIndex,
+            //             distanceFromLegTermination,
+            //             efisSymbolFlag: NdSymbolTypeFlags.PwpTopOfDescent,
+            //             efisSymbolLla,
+            //             displayedOnMcdu: true,
+            //             stats: PseudoWaypoints.computePseudoWaypointStats(`(BRUH${i})`, geometry.legs.get(alongLegIndex), distanceFromLegTermination),
+            //         });
+            //     }
+            // }
         }
 
         if (VnavConfig.VNAV_DESCENT_MODE === VnavDescentMode.CDA && VnavConfig.VNAV_EMIT_CDA_FLAP_PWP) {

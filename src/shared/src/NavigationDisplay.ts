@@ -74,7 +74,7 @@ export interface NdSymbol {
  * **NOTE:** this does not necessarily represent the current function of a transmitted flight plan. Those groups are sometimes used for other purposes than their name
  * refers to, for example the DASHED flight plan being used to transmit the non-offset path of an active flight plan with an offset applied.
  */
-export enum NdFlightPlan {
+export enum EfisVectorsGroup {
     /**
      * Solid green line
      */

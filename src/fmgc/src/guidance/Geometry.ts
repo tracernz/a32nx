@@ -139,7 +139,7 @@ export class Geometry {
         this.isComputed = true;
     }
 
-    recomputeFloatingPath(fromIndex: number, tas: Knots, gs: MetresPerSecond, ppos: Coordinates, activeLegIdx: number, activeTransIdx: number): void {
+    recomputeFloatingPath(fromIndex: number, tas: Knots, gs: MetresPerSecond, ppos: Coordinates, activeLegIdx: number, activeTransIdx: number) {
         let firstXFLegIndex;
         for (let i = fromIndex; i >= 0; i--) {
             const leg = this.legs.get(i);
@@ -205,23 +205,24 @@ export class Geometry {
     }
 
     /**
+     * @param activeLegIdx
      * @param ppos
      * @param trueTrack
      * @param gs
      */
-    getGuidanceParameters(ppos: Coordinates, trueTrack: DegreesTrue, gs: Knots) {
-        const activeLeg = this.legs.get(1);
-        const nextLeg = this.legs.get(2);
+    getGuidanceParameters(activeLegIdx: number, ppos: Coordinates, trueTrack: DegreesTrue, gs: Knots) {
+        const activeLeg = this.legs.get(activeLegIdx);
+        const nextLeg = this.legs.get(activeLegIdx + 1);
 
         let activeGuidable: Guidable | null = null;
         let nextGuidable: Guidable | null = null;
 
         // first, check if we're abeam with one of the transitions (start or end)
-        const fromTransition = this.transitions.get(0);
-        const toTransition = this.transitions.get(1);
+        const fromTransition = this.transitions.get(activeLegIdx - 1);
+        const toTransition = this.transitions.get(activeLegIdx);
         if (fromTransition && !fromTransition.isNull && fromTransition.isAbeam(ppos)) {
             if (fromTransition instanceof Type1Transition && !fromTransition.isFrozen) {
-                fromTransition.isFrozen = true;
+                fromTransition.freeze();
             }
 
             // Since CA leg Type3 inbound starts at PPOS, we always consider the CA leg as the active guidable
@@ -235,7 +236,7 @@ export class Geometry {
         } else if (toTransition && !toTransition.isNull) {
             if (toTransition.isAbeam(ppos)) {
                 if (toTransition instanceof Type1Transition && !toTransition.isFrozen) {
-                    toTransition.isFrozen = true;
+                    toTransition.freeze();
                 }
 
                 activeGuidable = toTransition;
@@ -289,11 +290,11 @@ export class Geometry {
                 + `RAD GUIDABLE ${nextGuidable?.repr ?? '---'}\n`
                 + `RAD DISTANCE ${rad?.toFixed(3) ?? '---'}\n`
                 + '---\n'
-                + `L0 ${this.legs.get(0)?.repr ?? '---'}\n`
-                + `T0 ${this.transitions.get(0)?.repr ?? '---'}\n`
-                + `L1 ${this.legs.get(1)?.repr ?? '---'}\n`
-                + `T1 ${this.transitions.get(1)?.repr ?? '---'}\n`
-                + `L2 ${this.legs.get(2)?.repr ?? '---'}\n`);
+                + `L0 ${this.legs.get(activeLegIdx - 1)?.repr ?? '---'}\n`
+                + `T0 ${this.transitions.get(activeLegIdx - 1)?.repr ?? '---'}\n`
+                + `L1 ${this.legs.get(activeLegIdx)?.repr ?? '---'}\n`
+                + `T1 ${this.transitions.get(activeLegIdx)?.repr ?? '---'}\n`
+                + `L2 ${this.legs.get(activeLegIdx + 1)?.repr ?? '---'}\n`);
         }
 
         return guidanceParams;
@@ -337,13 +338,13 @@ export class Geometry {
         return null;
     }
 
-    shouldSequenceLeg(ppos: LatLongAlt): boolean {
-        const activeLeg = this.legs.get(1);
+    shouldSequenceLeg(activeLegIdx: number, ppos: LatLongAlt): boolean {
+        const activeLeg = this.legs.get(activeLegIdx);
+        const outboundTransition = this.transitions.get(activeLegIdx);
 
-        const transitionAfterActiveLeg = this.transitions.get(1);
-        if (activeLeg instanceof TFLeg && transitionAfterActiveLeg instanceof Type1Transition) {
+        if (activeLeg instanceof TFLeg && outboundTransition instanceof Type1Transition) {
             // Sequence at ITP
-            const [transItp] = transitionAfterActiveLeg.getTurningPoints();
+            const [transItp] = outboundTransition.getTurningPoints();
 
             const legBearing = activeLeg.outboundCourse;
             const bearingToTransItp = Avionics.Utils.computeGreatCircleHeading(ppos, transItp);
@@ -352,7 +353,7 @@ export class Geometry {
             const directedDtgToTransItp = GeoMath.directedDistanceToGo(ppos, transItp, innerAngleWithTransItp);
 
             return directedDtgToTransItp < 0;
-        } if (transitionAfterActiveLeg instanceof Type3Transition || transitionAfterActiveLeg instanceof Type4Transition) {
+        } if (outboundTransition instanceof Type3Transition || outboundTransition instanceof Type4Transition) {
             const dtg = activeLeg.getDistanceToGo(ppos);
 
             if (dtg < 0) {

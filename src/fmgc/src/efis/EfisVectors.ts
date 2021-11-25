@@ -1,7 +1,8 @@
 import { GuidanceController } from '@fmgc/guidance/GuidanceController';
-import { EfisSide, NdFlightPlan } from '@shared/NavigationDisplay';
+import { EfisSide, EfisVectorsGroup } from '@shared/NavigationDisplay';
 import { PathVector } from '@fmgc/guidance/lnav/PathVector';
 import { LnavConfig } from '@fmgc/guidance/LnavConfig';
+import { LateralMode } from '@shared/autopilot';
 
 export class EfisVectors {
     private listener = RegisterViewListener('JS_LISTENER_SIMVARS');
@@ -24,8 +25,12 @@ export class EfisVectors {
 
         const activeVectors = this.guidanceController.currentMultipleLegGeometry.getAllPathVectors();
 
-        this.transmit(activeVectors, NdFlightPlan.ACTIVE, 'L');
-        this.transmit(activeVectors, NdFlightPlan.ACTIVE, 'R');
+        const lateralMode = SimVar.GetSimVarValue('L:A32NX_FMA_LATERAL_MODE', 'Number') as LateralMode;
+
+        const vectorsGroup = lateralMode === LateralMode.NAV ? EfisVectorsGroup.ACTIVE : EfisVectorsGroup.DASHED;
+
+        this.transmit(activeVectors, vectorsGroup, 'L');
+        this.transmit(activeVectors, vectorsGroup, 'R');
 
         if (LnavConfig.DEBUG_PERF) {
             console.timeEnd('vectors transmit');
@@ -38,7 +43,7 @@ export class EfisVectors {
         }, 5_000);
     }
 
-    private transmit(vectors: PathVector[], group: NdFlightPlan, side: EfisSide): void {
-        this.listener.triggerToAllSubscribers(`A32NX_EFIS_VECTORS_${side}_${NdFlightPlan[group]}`, vectors);
+    private transmit(vectors: PathVector[], group: EfisVectorsGroup, side: EfisSide): void {
+        this.listener.triggerToAllSubscribers(`A32NX_EFIS_VECTORS_${side}_${EfisVectorsGroup[group]}`, vectors);
     }
 }

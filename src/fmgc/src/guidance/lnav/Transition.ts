@@ -17,6 +17,12 @@ export abstract class Transition extends Guidable {
 
     public nextLeg: Leg;
 
+    protected isFrozen = false;
+
+    public freeze(): void {
+        this.isFrozen = true;
+    }
+
     recomputeWithParameters(_isActive: boolean, _tas: Knots, _gs: MetresPerSecond, _ppos: Coordinates, _previousGuidable: Guidable, _nextGuidable: Guidable) {
         // Default impl.
     }

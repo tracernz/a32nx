@@ -4,6 +4,7 @@ import { MathUtils } from '@shared/MathUtils';
 import { Geometry } from '@fmgc/guidance/Geometry';
 import { Type1Transition } from '@fmgc/guidance/lnav/transitions/Type1';
 import { Leg } from '@fmgc/guidance/lnav/legs/Leg';
+import { LnavConfig } from '@fmgc/guidance/LnavConfig';
 import { GuidanceComponent } from '../GuidanceComponent';
 import { ControlLaw } from '../ControlLaws';
 import { GuidanceController } from '../GuidanceController';
@@ -42,14 +43,24 @@ export class LnavDriver implements GuidanceComponent {
         this.ppos.lat = SimVar.GetSimVarValue('PLANE LATITUDE', 'degree latitude');
         this.ppos.long = SimVar.GetSimVarValue('PLANE LONGITUDE', 'degree longitude');
 
-        const geometry = this.guidanceController.currentActiveLegPathGeometry;
+        const geometry = this.guidanceController.currentMultipleLegGeometry;
 
-        if (geometry) {
+        const activeLegIdx = this.guidanceController.activeLegIndex;
+
+        if (geometry && geometry.legs.size > 0) {
             const dtg = geometry.getDistanceToGo(this.ppos);
 
-            const inboundTrans = geometry.transitions.get(0);
-            const activeLeg = geometry.legs.get(1);
-            const outboundTrans = geometry.transitions.get(1) ? geometry.transitions.get(1) : null;
+            const inboundTrans = geometry.transitions.get(activeLegIdx - 1);
+            const activeLeg = geometry.legs.get(activeLegIdx);
+            const outboundTrans = geometry.transitions.get(activeLegIdx) ? geometry.transitions.get(activeLegIdx) : null;
+
+            if (!activeLeg) {
+                if (LnavConfig.DEBUG_GUIDANCE) {
+                    console.log('[FMS/LNAV] No leg at activeLegIdx!');
+                }
+
+                return;
+            }
 
             let completeDisplayLegPathDtg;
             if (inboundTrans instanceof Type1Transition && !inboundTrans.isNull) {
@@ -70,16 +81,16 @@ export class LnavDriver implements GuidanceComponent {
                 outboundTrans,
             );
 
-            this.guidanceController.activeLegIndex = activeLeg.indexInFullPath;
+            // this.guidanceController.activeLegIndex = activeLeg.indexInFullPath;
             this.guidanceController.activeLegDtg = dtg;
             this.guidanceController.activeLegCompleteLegPathDtg = completeLegPathDtg;
             this.guidanceController.displayActiveLegCompleteLegPathDtg = completeDisplayLegPathDtg;
 
             // Update activeTransIndex in GuidanceController
             if (inboundTrans && inboundTrans.isAbeam(this.ppos)) {
-                this.guidanceController.activeTransIndex = activeLeg.indexInFullPath - 1;
+                this.guidanceController.activeTransIndex = activeLegIdx - 1;
             } else if (outboundTrans && outboundTrans.isAbeam(this.ppos)) {
-                this.guidanceController.activeTransIndex = activeLeg.indexInFullPath;
+                this.guidanceController.activeTransIndex = activeLegIdx;
             }
 
             // Pseudo waypoint sequencing
@@ -87,13 +98,13 @@ export class LnavDriver implements GuidanceComponent {
             // FIXME when we have a path model, we don't have to do any of this business ?
             // FIXME see PseudoWaypoints.ts:153 for why we also allow the previous leg
             const pseudoWaypointsOnActiveLeg = this.guidanceController.currentPseudoWaypoints
-                .filter((it) => it.alongLegIndex === activeLeg.indexInFullPath || it.alongLegIndex === activeLeg.indexInFullPath - 1);
+                .filter((it) => it.alongLegIndex === activeLegIdx || it.alongLegIndex === activeLegIdx - 1);
 
             for (const pseudoWaypoint of pseudoWaypointsOnActiveLeg) {
             // FIXME as with the hack above, we use the dtg to the intermediate point of the transition instead of
             // completeLegPathDtg, since we are pretending the previous leg is still active
                 let dtgToUse;
-                if (inboundTrans instanceof Type1Transition && pseudoWaypoint.alongLegIndex === activeLeg.indexInFullPath - 1) {
+                if (inboundTrans instanceof Type1Transition && pseudoWaypoint.alongLegIndex === activeLegIdx - 1) {
                     const inboundHalfDistance = inboundTrans.distance / 2;
                     const inboundDtg = inboundTrans.getDistanceToGo(this.ppos);
 
@@ -120,7 +131,7 @@ export class LnavDriver implements GuidanceComponent {
             // this is not the correct groundspeed to use, but it will suffice for now
             const gs = SimVar.GetSimVarValue('GPS GROUND SPEED', 'knots');
 
-            const params = geometry.getGuidanceParameters(this.ppos, trueTrack, gs);
+            const params = geometry.getGuidanceParameters(activeLegIdx, this.ppos, trueTrack, gs);
 
             if (params) {
                 if (this.lastLaw !== params.law) {
@@ -197,9 +208,9 @@ export class LnavDriver implements GuidanceComponent {
 
             SimVar.SetSimVarValue('L:A32NX_GPS_WP_DISTANCE', 'nautical miles', dtg ?? 0);
 
-            if (this.guidanceController.automaticSequencing && geometry.shouldSequenceLeg(this.ppos)) {
+            if (this.guidanceController.automaticSequencing && geometry.shouldSequenceLeg(activeLegIdx, this.ppos)) {
                 const currentLeg = activeLeg;
-                const nextLeg = geometry.legs.get(2);
+                const nextLeg = geometry.legs.get(activeLegIdx + 1);
 
                 if (nextLeg) {
                     // FIXME we should stop relying on discos in the wpt objects, but for now it's fiiiiiine

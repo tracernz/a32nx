@@ -1,8 +1,8 @@
-import React, { FC, useCallback, useMemo, useState } from 'react';
+import React, { FC, memo, useCallback, useState } from 'react';
 import { Layer } from '@instruments/common/utils';
 import { PathVector, PathVectorType } from '@fmgc/guidance/lnav/PathVector';
 import { LnavConfig } from '@fmgc/guidance/LnavConfig';
-import { EfisSide, NdFlightPlan } from '@shared/NavigationDisplay';
+import { EfisSide, EfisVectorsGroup } from '@shared/NavigationDisplay';
 import { Geo } from '@fmgc/utils/Geo';
 import { useCoherentEvent } from '@instruments/common/hooks';
 import { MapParameters } from '../utils/MapParameters';
@@ -13,44 +13,28 @@ export interface FlightPlanVectorsProps {
     mapParams: MapParameters,
     mapParamsVersion: number,
     side: EfisSide,
-    group: NdFlightPlan,
+    group: EfisVectorsGroup,
 }
 
-export const FlightPlanVectors: FC<FlightPlanVectorsProps> = ({ x, y, mapParams, side, group }) => {
+/**
+ * Receives and draws EFIS vectors for a certain vector group (flight plan)
+ */
+export const FlightPlanVectors: FC<FlightPlanVectorsProps> = memo(({ x, y, mapParams, side, group }) => {
     const [vectors, setVectors] = useState<PathVector[]>([]);
 
-    const lineStyle = useMemo<React.SVGAttributes<SVGPathElement>>(() => {
-        switch (group) {
-        case NdFlightPlan.ACTIVE:
-            return { stroke: '#0f0' };
-        case NdFlightPlan.DASHED:
-            return { stroke: '#0f0', strokeDasharray: '15 12' };
-        case NdFlightPlan.TEMPORARY:
-            return { stroke: '#ff0', strokeDasharray: '15 12' };
-        case NdFlightPlan.SECONDARY:
-            return { stroke: '#888' };
-        case NdFlightPlan.SECONDARY_DASHED:
-            return { stroke: '#888', strokeDasharray: '15 12' };
-        case NdFlightPlan.MISSED:
-            return { stroke: '#0ff' };
-        case NdFlightPlan.ALTERNATE:
-            return { stroke: '#0ff', strokeDasharray: '15 12' };
-        case NdFlightPlan.ACTIVE_EOSID:
-            return { stroke: '#ff0' };
-        default:
-            return { stroke: '#f00' };
-        }
-    }, [group]);
+    const lineStyle = vectorsGroupLineStyle(group);
 
-    const vectorsCallback = useCallback((vectors: PathVector[]) => {
+    useCoherentEvent(`A32NX_EFIS_VECTORS_${side}_${EfisVectorsGroup[group]}`, useCallback((vectors: PathVector[]) => {
         if (vectors) {
             setVectors(vectors);
         } else if (LnavConfig.DEBUG_PATH_DRAWING) {
-            console.warn(`[ND/Vectors] Received falsy vectors on event '${NdFlightPlan[group]}'.`);
+            console.warn(`[ND/Vectors] Received falsy vectors on event '${EfisVectorsGroup[group]}'.`);
         }
-    }, [group]);
+    }, [group]));
 
-    useCoherentEvent(`A32NX_EFIS_VECTORS_${side}_${NdFlightPlan[group]}`, vectorsCallback);
+    if (vectors.length === 0) {
+        return null;
+    }
 
     return (
         <Layer x={x} y={y}>
@@ -101,4 +85,27 @@ export const FlightPlanVectors: FC<FlightPlanVectorsProps> = ({ x, y, mapParams,
             })}
         </Layer>
     );
-};
+});
+
+function vectorsGroupLineStyle(group: EfisVectorsGroup): React.SVGAttributes<SVGPathElement> {
+    switch (group) {
+    case EfisVectorsGroup.ACTIVE:
+        return { stroke: '#0f0' };
+    case EfisVectorsGroup.DASHED:
+        return { stroke: '#0f0', strokeDasharray: '15 12' };
+    case EfisVectorsGroup.TEMPORARY:
+        return { stroke: '#ff0', strokeDasharray: '15 12' };
+    case EfisVectorsGroup.SECONDARY:
+        return { stroke: '#888' };
+    case EfisVectorsGroup.SECONDARY_DASHED:
+        return { stroke: '#888', strokeDasharray: '15 12' };
+    case EfisVectorsGroup.MISSED:
+        return { stroke: '#0ff' };
+    case EfisVectorsGroup.ALTERNATE:
+        return { stroke: '#0ff', strokeDasharray: '15 12' };
+    case EfisVectorsGroup.ACTIVE_EOSID:
+        return { stroke: '#ff0' };
+    default:
+        return { stroke: '#f00' };
+    }
+}
