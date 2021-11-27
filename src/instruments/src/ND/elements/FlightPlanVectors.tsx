@@ -38,7 +38,7 @@ export const FlightPlanVectors: FC<FlightPlanVectorsProps> = memo(({ x, y, mapPa
 
     return (
         <Layer x={x} y={y}>
-            {vectors.map((vector) => {
+            {vectors.map((vector, index) => {
                 switch (vector.type) {
                 case PathVectorType.Line:
                     const [sx, sy] = mapParams.coordinatesToXYy(vector.startPoint);
@@ -72,12 +72,19 @@ export const FlightPlanVectors: FC<FlightPlanVectorsProps> = memo(({ x, y, mapPa
                 case PathVectorType.DebugPoint:
                     const [x, y] = mapParams.coordinatesToXYy(vector.startPoint);
 
+                    const offset = index % 2 === 0;
+
                     return (
-                        <path
-                            fill="none"
-                            strokeWidth={2}
-                            d={`M ${x} ${y} h -5 h 10 l -5 -5 v 10`}
-                        />
+                        <>
+                            <path
+                                stroke="cyan"
+                                fill="none"
+                                strokeWidth={1.5}
+                                d={`M ${x} ${y} h -7 h 14 m -7 -7 v 14`}
+                            />
+
+                            <text x={x + (offset ? -15 : 15)} y={y + 5} fontSize={13} textAnchor={offset ? 'end' : 'start'} fill="cyan">{vector.annotation}</text>
+                        </>
                     );
                 default:
                     return null;
