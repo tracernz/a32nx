@@ -52,7 +52,7 @@ export const FlightPlan: FC<FlightPathProps> = memo(({ x = 0, y = 0, side, symbo
                 );
             })}
 
-            {Object.keys(EfisVectorsGroup).filter((it) => parseInt(it)).map((group) => (
+            {Object.keys(EfisVectorsGroup).filter((it) => !Number.isNaN(parseInt(it))).map((group) => (
                 <FlightPlanVectors
                     key={EfisVectorsGroup[group]}
                     x={0}
