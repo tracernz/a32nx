@@ -116,6 +116,7 @@ const NavigationDisplay: React.FC = () => {
                             adirsAlign={adirsAlign}
                             rangeSetting={rangeSettings[rangeIndex]}
                             symbols={symbols}
+                            side={side}
                             ppos={ppos}
                             mapHidden={modeChangeShown || rangeChangeShown}
                         />

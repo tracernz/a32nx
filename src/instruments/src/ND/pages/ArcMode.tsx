@@ -79,14 +79,16 @@ export const ArcMode: React.FC<ArcModeProps> = ({ symbols, adirsAlign, rangeSett
 
                         { (((fmaLatMode === LateralMode.NONE
                             || fmaLatMode === LateralMode.HDG
-                            || fmaLatMode === LateralMode.TRACK) && !fmaLatArmed) || !flightPlanManager.getCurrentFlightPlan().length) && (
+                            || fmaLatMode === LateralMode.TRACK) && !fmaLatArmed)) && (
                             <TrackLine x={384} y={620} heading={heading} track={track} />
                         )}
                     </g>
                     <RadioNeedle index={1} side={side} displayMode={Mode.ARC} centreHeight={620} />
                     <RadioNeedle index={2} side={side} displayMode={Mode.ARC} centreHeight={620} />
                 </g>
-                <ToWaypointIndicator info={flightPlanManager.getCurrentFlightPlan().computeActiveWaypointStatistics(ppos)} />
+
+                <ToWaypointIndicator side={side} />
+
                 <ApproachMessage info={flightPlanManager.getAirportApproach()} flightPhase={fmgcFlightPhase} />
                 <TrackBug heading={heading} track={track} />
                 { lsDisplayed && <IlsCourseBug heading={heading} ilsCourse={ilsCourse} /> }
