@@ -1,5 +1,14 @@
 export const LnavConfig = {
 
+    /* ========== PATHGEN CONFIG ========== */
+
+    /**
+     * The number of transitions to compute after the active leg (-1: no limit, compute all transitions)
+     */
+    NUM_COMPUTED_TRANSITIONS_AFTER_ACTIVE: -1,
+
+    /* ========== DEBUG INFO ========== */
+
     /**
      * Whether to print geometry generation / update debug info
      */

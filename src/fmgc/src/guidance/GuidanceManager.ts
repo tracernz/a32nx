@@ -125,36 +125,6 @@ export class GuidanceManager {
         return GuidanceManager.tfLeg(from, to, segment, toIndex);
     }
 
-    getPreviousLeg(): Leg | null {
-        const activeIndex = this.flightPlanManager.getActiveWaypointIndex(false, false, 0);
-
-        const from = this.flightPlanManager.getWaypoint(activeIndex - 2, 0);
-        const to = this.flightPlanManager.getWaypoint(activeIndex - 1, 0);
-        const segment = this.flightPlanManager.getSegmentFromWaypoint(to, 0).type;
-
-        return GuidanceManager.legFromWaypoints(from, to, activeIndex - 1, segment);
-    }
-
-    getActiveLeg(): Leg | null {
-        const activeIndex = this.flightPlanManager.getActiveWaypointIndex(false, false, 0);
-
-        const from = this.flightPlanManager.getWaypoint(activeIndex - 1, 0);
-        const to = this.flightPlanManager.getWaypoint(activeIndex, 0);
-        const segment = this.flightPlanManager.getSegmentFromWaypoint(to, 0).type;
-
-        return GuidanceManager.legFromWaypoints(from, to, activeIndex, segment);
-    }
-
-    getNextLeg(): Leg | null {
-        const activeIndex = this.flightPlanManager.getActiveWaypointIndex(false, false, 0);
-
-        const from = this.flightPlanManager.getWaypoint(activeIndex, 0);
-        const to = this.flightPlanManager.getWaypoint(activeIndex + 1, 0);
-        const segment = this.flightPlanManager.getSegmentFromWaypoint(to, 0).type;
-
-        return GuidanceManager.legFromWaypoints(from, to, activeIndex + 1, segment);
-    }
-
     getLeg(index: number, temp: boolean): Leg | null {
         const flightPlanIndex = temp ? 1 : 0;
 
@@ -197,7 +167,7 @@ export class GuidanceManager {
 
                     const prevLeg = geometry.legs.get(i - 1);
 
-                    if (prevLeg) {
+                    if (prevLeg && (LnavConfig.NUM_COMPUTED_TRANSITIONS_AFTER_ACTIVE === -1 || (i - activeIdx) < LnavConfig.NUM_COMPUTED_TRANSITIONS_AFTER_ACTIVE)) {
                         const newInboundTransition = TransitionPicker.forLegs(prevLeg, newLeg);
 
                         if (LnavConfig.DEBUG_GEOMETRY) {
@@ -207,6 +177,8 @@ export class GuidanceManager {
                         if (newInboundTransition) {
                             geometry.transitions.set(i - 1, newInboundTransition);
                         }
+                    } else {
+                        geometry.transitions.delete(i - 1);
                     }
                 } else {
                     geometry.legs.delete(i);
@@ -214,11 +186,22 @@ export class GuidanceManager {
             }
         }
 
-        // Remove extra legs
+        // Remove extra legs at the start
 
-        const legsToTrim = wptCount - geometry.legs.size;
+        const legsToTrimAtStart = activeIdx - 2; // Keep previous leg
+        for (let i = 0; i < legsToTrimAtStart; i++) {
+            if (LnavConfig.DEBUG_GEOMETRY) {
+                console.log(`[FMS/Geometry/Update] Removed leg #${i} (${geometry.legs.get(i)}) because of trimming.`);
+            }
 
-        for (let i = (wptCount - 1) + legsToTrim; i > wptCount; i--) {
+            geometry.legs.delete(i);
+            geometry.transitions.delete(i - 1);
+        }
+
+        // Remove extra legs at the end
+
+        const legsToTrimAtEnd = geometry.legs.size - wptCount;
+        for (let i = (wptCount - 1) + legsToTrimAtEnd; i > wptCount; i--) {
             if (LnavConfig.DEBUG_GEOMETRY) {
                 console.log(`[FMS/Geometry/Update] Removed leg #${i} (${geometry.legs.get(i)}) because of trimming.`);
             }

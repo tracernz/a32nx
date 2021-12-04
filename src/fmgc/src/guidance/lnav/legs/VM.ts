@@ -51,6 +51,10 @@ export class VMLeg extends Leg {
         return 1;
     }
 
+    get ident(): string {
+        return 'MANUAL';
+    }
+
     // Manual legs don't have speed contraints
     get speedConstraint(): undefined {
         return undefined;

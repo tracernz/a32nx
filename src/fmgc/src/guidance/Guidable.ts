@@ -1,6 +1,6 @@
 import { Coordinates } from '@fmgc/flightplanning/data/geo';
 import { GuidanceParameters } from '@fmgc/guidance/ControlLaws';
-import { PathVector } from '@fmgc/guidance/lnav/PathVector';
+import { PathVector, PathVectorType } from '@fmgc/guidance/lnav/PathVector';
 
 export abstract class Guidable {
     protected constructor() {
@@ -12,6 +12,10 @@ export abstract class Guidable {
         if (this.predictedPath) {
             for (let i = this.predictedPath.length - 1; i >= 0; i--) {
                 const vector = this.predictedPath[i];
+
+                if (vector.type === PathVectorType.DebugPoint) {
+                    continue;
+                }
 
                 if (vector.endPoint) {
                     return vector.endPoint;

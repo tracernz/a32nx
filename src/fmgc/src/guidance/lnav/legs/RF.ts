@@ -7,11 +7,11 @@ import {
 } from '@fmgc/guidance/lnav/legs';
 import { SegmentType } from '@fmgc/wtsdk';
 import { Coordinates } from '@fmgc/flightplanning/data/geo';
-import { Leg } from '@fmgc/guidance/lnav/legs/Leg';
 import { arcDistanceToGo, arcGuidance, pointOnArc } from '@fmgc/guidance/lnav/CommonGeometry';
+import { XFLeg } from '@fmgc/guidance/lnav/legs/XF';
 import { PathVector, PathVectorType } from '../PathVector';
 
-export class RFLeg extends Leg {
+export class RFLeg extends XFLeg {
     // termination fix of the previous leg
     public from: WayPoint;
 
@@ -35,6 +35,7 @@ export class RFLeg extends Leg {
         super();
         this.from = from;
         this.to = to;
+        this.fix = to;
         this.center = center;
         this.radius = Avionics.Utils.computeGreatCircleDistance(this.center, this.to.infos.coordinates);
         this.segment = segment;
@@ -70,7 +71,7 @@ export class RFLeg extends Leg {
                 centrePoint: this.center,
                 endPoint: this.to.infos.coordinates,
                 sweepAngle: this.clockwise ? this.angle : -this.angle,
-            }
+            },
         ];
 
         this.isComputed = true;

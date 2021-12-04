@@ -24,6 +24,8 @@ export class LnavDriver implements GuidanceComponent {
 
     public ppos: LatLongAlt = new LatLongAlt();
 
+    private listener = RegisterViewListener('JS_LISTENER_SIMVARS');
+
     constructor(guidanceController: GuidanceController) {
         this.guidanceController = guidanceController;
         this.lastAvail = null;
@@ -207,6 +209,20 @@ export class LnavDriver implements GuidanceComponent {
             }
 
             SimVar.SetSimVarValue('L:A32NX_GPS_WP_DISTANCE', 'nautical miles', dtg ?? 0);
+
+            // Update EFIS active waypoint info
+
+            const efisIdent = activeLeg.ident;
+            const efisBearing = activeLeg.outboundCourse;
+            const efisDistance = dtg;
+            const efisEta = activeLeg.eta(this.ppos, gs);
+
+            this.listener.triggerToAllSubscribers('A32NX_EFIS_L_TO_WPT_1', efisIdent, efisBearing);
+            this.listener.triggerToAllSubscribers('A32NX_EFIS_L_TO_WPT_2', efisDistance, efisEta);
+            this.listener.triggerToAllSubscribers('A32NX_EFIS_R_TO_WPT_1', efisIdent, efisBearing);
+            this.listener.triggerToAllSubscribers('A32NX_EFIS_R_TO_WPT_2', efisDistance, efisEta);
+
+            // Sequencing
 
             if (this.guidanceController.automaticSequencing && geometry.shouldSequenceLeg(activeLegIdx, this.ppos)) {
                 const currentLeg = activeLeg;

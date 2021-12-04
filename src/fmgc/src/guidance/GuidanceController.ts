@@ -5,6 +5,7 @@ import { Geometry } from '@fmgc/guidance/Geometry';
 import { PseudoWaypoint } from '@fmgc/guidance/PsuedoWaypoint';
 import { PseudoWaypoints } from '@fmgc/guidance/lnav/PseudoWaypoints';
 import { EfisVectors } from '@fmgc/efis/EfisVectors';
+import { Coordinates } from '@fmgc/flightplanning/data/geo';
 import { LnavDriver } from './lnav/LnavDriver';
 import { FlightPlanManager } from '../flightplanning/FlightPlanManager';
 import { GuidanceManager } from './GuidanceManager';
@@ -38,9 +39,13 @@ export class GuidanceController {
 
     public displayActiveLegCompleteLegPathDtg: NauticalMiles;
 
+    public focusedWaypointCoordinates: Coordinates = { lat: 0, long: 0 };
+
     public currentPseudoWaypoints: PseudoWaypoint[] = [];
 
     public automaticSequencing: boolean = true;
+
+    private taskQueue: (() => Generator)[] = [];
 
     constructor(flightPlanManager: FlightPlanManager, guidanceManager: GuidanceManager) {
         this.flightPlanManager = flightPlanManager;
@@ -67,7 +72,7 @@ export class GuidanceController {
 
     private lastFlightPlanVersion = SimVar.GetSimVarValue(FlightPlanManager.FlightPlanVersionKey, 'number');
 
-    private geometryRecomputationTimer = 0;
+    private geometryRecomputationTimer = GEOMETRY_RECOMPUTATION_TIMER + 1;
 
     update(deltaTime: number) {
         this.geometryRecomputationTimer += deltaTime;
@@ -81,6 +86,7 @@ export class GuidanceController {
                 this.lastFlightPlanVersion = newFlightPlanVersion;
 
                 this.generateNewGeometry(this.flightPlanManager.getActiveWaypointIndex(), this.flightPlanManager.getWaypoints().length);
+                this.geometryRecomputationTimer = 0;
             }
 
             if (this.geometryRecomputationTimer > GEOMETRY_RECOMPUTATION_TIMER) {
@@ -94,13 +100,50 @@ export class GuidanceController {
                 }
             }
 
+            // PLAN mode center
+
+            const focusedWpIndex = SimVar.GetSimVarValue('L:A32NX_SELECTED_WAYPOINT', 'number');
+            const focusedWp = this.flightPlanManager.getWaypoint(focusedWpIndex);
+
+            if (focusedWp) {
+                this.focusedWaypointCoordinates.lat = focusedWp.infos.coordinates.lat;
+                this.focusedWaypointCoordinates.long = focusedWp.infos.coordinates.long;
+
+                SimVar.SetSimVarValue('L:A32NX_SELECTED_WAYPOINT_LAT', 'Degrees', this.focusedWaypointCoordinates.lat);
+                SimVar.SetSimVarValue('L:A32NX_SELECTED_WAYPOINT_LONG', 'Degrees', this.focusedWaypointCoordinates.long);
+            }
+
+            // Main loop
+
             this.lnavDriver.update(deltaTime);
             this.vnavDriver.update(deltaTime);
             this.pseudoWaypoints.update(deltaTime);
             this.efisVectors.update(deltaTime);
+
+            this.updateTasks();
         } catch (e) {
             console.error('[FMS] Error during tick. See exception below.');
             console.error(e);
+        }
+    }
+
+    private currentTask: Generator = null;
+
+    private updateTasks() {
+        if (!this.currentTask && this.taskQueue.length > 0) {
+            const nextTaskExecutor = this.taskQueue.shift();
+
+            if (nextTaskExecutor) {
+                this.currentTask = nextTaskExecutor();
+            }
+        }
+
+        if (this.currentTask) {
+            const done = this.currentTask.next().done;
+
+            if (done) {
+                this.currentTask = null;
+            }
         }
     }
 
@@ -128,6 +171,10 @@ export class GuidanceController {
         if (this.currentMultipleLegGeometry) {
             this.currentMultipleLegGeometry.recomputeWithParameters(tas, gs, this.lnavDriver.ppos, this.activeLegIndex, this.activeTransIndex);
         }
+    }
+
+    public runStepTask(executor: () => Generator) {
+        this.taskQueue.push(executor);
     }
 
     /**

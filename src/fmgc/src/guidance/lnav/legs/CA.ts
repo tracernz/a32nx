@@ -130,6 +130,10 @@ export class CALeg extends Leg {
         return undefined;
     }
 
+    get ident(): string {
+        return Math.floor(this.altitude).toString();
+    }
+
     getDistanceToGo(ppos: Coordinates): NauticalMiles {
         return courseToFixDistanceToGo(ppos, this.course, this.estimatedTermination);
     }

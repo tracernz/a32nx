@@ -24,17 +24,21 @@ export const FlightPlanVectors: FC<FlightPlanVectorsProps> = memo(({ x, y, mapPa
 
     const lineStyle = vectorsGroupLineStyle(group);
 
-    useCoherentEvent(`A32NX_EFIS_VECTORS_${side}_${EfisVectorsGroup[group]}`, useCallback((vectors: PathVector[]) => {
+    useCoherentEvent(`A32NX_EFIS_VECTORS_${side}_${EfisVectorsGroup[group]}`, useCallback((newVectors: PathVector[], start: number) => {
         if (vectors) {
-            setVectors(vectors);
+            setVectors((old) => {
+                const ret = [...old];
+
+                for (let i = start; i < start + newVectors.length; i++) {
+                    ret[i] = newVectors[i - start];
+                }
+
+                return ret;
+            });
         } else if (LnavConfig.DEBUG_PATH_DRAWING) {
             console.warn(`[ND/Vectors] Received falsy vectors on event '${EfisVectorsGroup[group]}'.`);
         }
     }, [group]));
-
-    if (vectors.length === 0) {
-        return null;
-    }
 
     return (
         <Layer x={x} y={y}>
