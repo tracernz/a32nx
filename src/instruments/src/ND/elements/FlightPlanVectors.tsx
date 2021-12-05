@@ -24,13 +24,19 @@ export const FlightPlanVectors: FC<FlightPlanVectorsProps> = memo(({ x, y, mapPa
 
     const lineStyle = vectorsGroupLineStyle(group);
 
-    useCoherentEvent(`A32NX_EFIS_VECTORS_${side}_${EfisVectorsGroup[group]}`, useCallback((newVectors: PathVector[], start: number) => {
+    useCoherentEvent(`A32NX_EFIS_VECTORS_${side}_${EfisVectorsGroup[group]}`, useCallback((newVectors: PathVector[], start: number, done: boolean) => {
         if (vectors) {
             setVectors((old) => {
                 const ret = [...old];
 
                 for (let i = start; i < start + newVectors.length; i++) {
                     ret[i] = newVectors[i - start];
+                }
+
+                if (done) {
+                    const trimAfter = start + newVectors.length;
+
+                    ret.slice(trimAfter);
                 }
 
                 return ret;
@@ -103,6 +109,7 @@ function vectorsGroupLineStyle(group: EfisVectorsGroup): React.SVGAttributes<SVG
     case EfisVectorsGroup.ACTIVE:
         return { stroke: '#0f0' };
     case EfisVectorsGroup.DASHED:
+    case EfisVectorsGroup.OFFSET:
         return { stroke: '#0f0', strokeDasharray: '15 12' };
     case EfisVectorsGroup.TEMPORARY:
         return { stroke: '#ff0', strokeDasharray: '15 12' };

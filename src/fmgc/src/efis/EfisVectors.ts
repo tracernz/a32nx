@@ -138,6 +138,7 @@ export class EfisVectors {
                 `A32NX_EFIS_VECTORS_${side}_${EfisVectorsGroup[vectorsGroup]}`,
                 vectors.slice(lastStartIndex, vectors.length),
                 lastStartIndex,
+                true,
             );
 
             if (LnavConfig.DEBUG_PATH_DRAWING) {
