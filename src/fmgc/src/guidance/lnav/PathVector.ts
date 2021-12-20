@@ -52,6 +52,19 @@ export function pathVectorLength(vector: PathVector) {
     return 0;
 }
 
+export function pathVectorValid(vector: PathVector) {
+    switch (vector.type) {
+    case PathVectorType.Line:
+        return !!(vector.startPoint && vector.endPoint);
+    case PathVectorType.Arc:
+        return !!(vector.endPoint && vector.centrePoint && vector.sweepAngle);
+    case PathVectorType.DebugPoint:
+        return !!vector.startPoint;
+    default:
+        return true;
+    }
+}
+
 export function pathVectorPoint(vector: PathVector, distanceFromEnd: NauticalMiles): Coordinates | undefined {
     if (vector.type === PathVectorType.Line) {
         return pointOnCourseToFix(distanceFromEnd, Avionics.Utils.computeGreatCircleHeading(vector.startPoint, vector.endPoint), vector.endPoint);

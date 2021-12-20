@@ -5,7 +5,7 @@
 
 import { GuidanceController } from '@fmgc/guidance/GuidanceController';
 import { EfisSide, EfisVectorsGroup } from '@shared/NavigationDisplay';
-import { PathVector, pathVectorLength } from '@fmgc/guidance/lnav/PathVector';
+import { PathVector, pathVectorLength, pathVectorValid } from '@fmgc/guidance/lnav/PathVector';
 import { LnavConfig } from '@fmgc/guidance/LnavConfig';
 import { LateralMode } from '@shared/autopilot';
 import { TaskCategory } from '@fmgc/guidance/TaskQueue';
@@ -127,6 +127,10 @@ export class EfisVectors {
      * Protect against potential perf issues from immense vectors
      */
     private static isVectorReasonable(vector: PathVector): boolean {
+        if (!pathVectorValid(vector)) {
+            return false;
+        }
+
         const length = pathVectorLength(vector);
 
         return length <= 350;
