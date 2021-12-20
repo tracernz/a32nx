@@ -2,15 +2,18 @@ import { MathUtils } from '@shared/MathUtils';
 import { DFLeg } from '@fmgc/guidance/lnav/legs/DF';
 import { TFLeg } from '@fmgc/guidance/lnav/legs/TF';
 import { Transition } from '@fmgc/guidance/lnav/Transition';
+import { PathCaptureTransition } from '@fmgc/guidance/lnav/transitions/PathCaptureTransition';
 import { GuidanceParameters } from '@fmgc/guidance/ControlLaws';
 import { Coordinates } from '@fmgc/flightplanning/data/geo';
 import { Guidable } from '@fmgc/guidance/Guidable';
 import { CILeg } from '@fmgc/guidance/lnav/legs/CI';
-import { arcDistanceToGo, arcGuidance, arcLength } from '../CommonGeometry';
+import { arcDistanceToGo, arcGuidance, arcLength, maxBank, minBank } from '@fmgc/guidance/lnav/CommonGeometry';
+import { TurnDirection } from '@fmgc/types/fstypes/FSEnums';
+import { Constants } from '@shared/Constants';
 import { PathVector, PathVectorType } from '../PathVector';
 import { CFLeg } from '../legs/CF';
 
-type PrevLeg = CFLeg | DFLeg | TFLeg | CILeg;
+type PrevLeg = CFLeg | DFLeg | TFLeg;
 type NextLeg = CFLeg | /* FALeg | FMLeg | PILeg | */ TFLeg;
 
 const mod = (x: number, n: number) => x - Math.floor(x / n) * n;
@@ -31,6 +34,8 @@ export class FixedRadiusTransition extends Transition {
 
     private centre: Coordinates | undefined = undefined;
 
+    private revertTo: PathCaptureTransition | undefined = undefined;
+
     constructor(
         public previousLeg: PrevLeg, // FIXME temporary
         public nextLeg: NextLeg, // FIXME temporary
@@ -38,7 +43,15 @@ export class FixedRadiusTransition extends Transition {
         super();
     }
 
+    get isReverted(): boolean {
+        return this.revertTo !== undefined;
+    }
+
     getPathStartPoint(): Coordinates | undefined {
+        if (this.revertTo) {
+            return this.revertTo.getPathStartPoint();
+        }
+
         if (this.isComputed) {
             return this.turningPoints[0];
         }
@@ -47,6 +60,10 @@ export class FixedRadiusTransition extends Transition {
     }
 
     getPathEndPoint(): Coordinates | undefined {
+        if (this.revertTo) {
+            return this.revertTo.getPathEndPoint();
+        }
+
         if (this.isComputed) {
             return this.turningPoints[1];
         }
@@ -55,13 +72,10 @@ export class FixedRadiusTransition extends Transition {
     }
 
     get isNull(): boolean {
-        return Math.abs(Avionics.Utils.diffAngle(
-            this.previousLeg.outboundCourse,
-            this.nextLeg.inboundCourse,
-        )) <= 3 || this.distance < 0.01;
+        return this.distance < 0.01;
     }
 
-    recomputeWithParameters(_isActive: boolean, tas: Knots, _gs: Knots, _ppos: Coordinates, _trueTrack: DegreesTrue, _previousGuidable: Guidable, _nextGuidable: Guidable) {
+    recomputeWithParameters(isActive: boolean, tas: Knots, gs: Knots, ppos: Coordinates, trueTrack: DegreesTrue, previousGuidable: Guidable, nextGuidable: Guidable) {
         if (this.isFrozen) {
             if (DEBUG) {
                 console.log('[FMS/Geometry] Not recomputing Type I transition as it is frozen.');
@@ -69,32 +83,36 @@ export class FixedRadiusTransition extends Transition {
             return;
         }
 
-        const courseChange = mod(this.nextLeg.inboundCourse - this.previousLeg.outboundCourse + 180, 360) - 180;
-
         // Sweep angle
         this.sweepAngle = MathUtils.diffAngle(this.previousLeg.outboundCourse, this.nextLeg.inboundCourse);
 
-        // Always at least 5 degrees turn
-        const minBankAngle = 5;
-
         // Start with half the track change
-        const bankAngle = Math.abs(courseChange) / 2;
+        const bankAngle = Math.abs(this.sweepAngle) / 2;
 
-        // Bank angle limits, always assume limit 2 for now @ 25 degrees between 150 and 300 knots
-        let maxBankAngle = 25;
-        if (tas < 150) {
-            maxBankAngle = 15 + Math.min(tas / 150, 1) * (25 - 15);
-        } else if (tas > 300) {
-            maxBankAngle = 25 - Math.min((tas - 300) / 150, 1) * (25 - 19);
-        }
-
-        const finalBankAngle = Math.max(Math.min(bankAngle, maxBankAngle), minBankAngle);
+        // apply limits
+        const finalBankAngle = Math.max(Math.min(bankAngle, maxBank(tas, true)), minBank(this.nextLeg.segment));
 
         // Turn radius
         this.radius = (tas ** 2 / (9.81 * Math.tan(finalBankAngle * Avionics.Utils.DEG2RAD))) / 6997.84;
 
+        const defaultTurnDirection = this.sweepAngle >= 0 ? TurnDirection.Right : TurnDirection.Left;
+        const forcedTurn = (this.previousLeg.forcedTurnDirection === TurnDirection.Left || this.previousLeg.forcedTurnDirection === TurnDirection.Right)
+            && defaultTurnDirection !== this.previousLeg.forcedTurnDirection;
+        const requiredTurnDistance = this.radius * Math.tan(Math.abs(this.sweepAngle)) + 0.1;
+        const tooBig = this.previousLeg.distanceToTermFix < requiredTurnDistance;
+        // in some circumstances we revert to a path capture transition where the fixed radius won't work well
+        if (Math.abs(this.sweepAngle) <= 3 || Math.abs(this.sweepAngle) > 175 || this.previousLeg.overflyTermFix || forcedTurn || tooBig) {
+            if (this.revertTo === undefined) {
+                this.revertTo = new PathCaptureTransition(this.previousLeg, this.nextLeg);
+            }
+            this.revertTo.recomputeWithParameters(isActive, tas, gs, ppos, trueTrack, previousGuidable, nextGuidable);
+            this.isComputed = this.revertTo.isComputed;
+            return;
+        }
+        this.revertTo = undefined;
+
         // Turn direction
-        this.clockwise = courseChange >= 0;
+        this.clockwise = this.sweepAngle >= 0;
 
         // Turning points
         this.turningPoints = this.computeTurningPoints();
@@ -118,6 +136,10 @@ export class FixedRadiusTransition extends Transition {
     }
 
     isAbeam(ppos: LatLongData): boolean {
+        if (this.revertTo !== undefined) {
+            return this.revertTo.isAbeam(ppos);
+        }
+
         const turningPoints = this.getTurningPoints();
         if (!turningPoints) {
             return false;
@@ -135,6 +157,10 @@ export class FixedRadiusTransition extends Transition {
     }
 
     get distance(): NauticalMiles {
+        if (this.revertTo) {
+            return this.revertTo.distance;
+        }
+
         return arcLength(this.radius, this.sweepAngle);
     }
 
@@ -142,6 +168,10 @@ export class FixedRadiusTransition extends Transition {
      * Returns the distance between the inbound turning point and the reference fix
      */
     get unflownDistance() {
+        if (this.revertTo) {
+            return 0;
+        }
+
         if (!this.getTurningPoints()) {
             return 0;
         }
@@ -182,31 +212,51 @@ export class FixedRadiusTransition extends Transition {
         return [inbound, outbound];
     }
 
-    getTurningPoints(): [LatLongAlt, LatLongAlt] | undefined {
+    getTurningPoints(): [Coordinates, Coordinates] | undefined {
+        if (this.revertTo) {
+            return this.revertTo.getTurningPoints();
+        }
+
         return this.turningPoints;
     }
 
     get predictedPath(): PathVector[] {
+        if (this.revertTo) {
+            return this.revertTo.predictedPath;
+        }
+
         return this.computedPath;
     }
 
     getDistanceToGo(ppos: Coordinates): NauticalMiles {
+        if (this.revertTo) {
+            return this.revertTo.getDistanceToGo(ppos);
+        }
+
         const [itp] = this.getTurningPoints();
 
         return arcDistanceToGo(ppos, itp, this.centre, this.sweepAngle);
     }
 
-    getGuidanceParameters(ppos: LatLongAlt, trueTrack: number): GuidanceParameters | null {
+    getGuidanceParameters(ppos: LatLongAlt, trueTrack: number, tas: Knots): GuidanceParameters | null {
+        if (this.revertTo) {
+            return this.revertTo.getGuidanceParameters(ppos, trueTrack, tas);
+        }
+
         const [itp] = this.getTurningPoints();
 
         return arcGuidance(ppos, trueTrack, itp, this.centre, this.sweepAngle);
     }
 
     getNominalRollAngle(gs: Knots): Degrees {
+        if (this.revertTo) {
+            return this.revertTo.getNominalRollAngle(gs);
+        }
+
         return (this.clockwise ? 1 : -1) * Math.atan(((gs * 463 / 900) ** 2) / (this.radius * 1852 * Constants.G)) * (180 / Math.PI);
     }
 
     get repr(): string {
-        return `TYPE1(${this.previousLeg.repr} TO ${this.nextLeg.repr})`;
+        return `TYPE1${this.revertTo ? 'reverted' : ''}(${this.previousLeg.repr} TO ${this.nextLeg.repr})`;
     }
 }

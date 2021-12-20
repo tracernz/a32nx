@@ -38,4 +38,12 @@ export abstract class Leg extends Guidable {
     get distance(): NauticalMiles {
         return Geo.getDistance(this.getPathStartPoint(), this.getPathEndPoint());
     }
+
+    get forcedTurnDirection(): TurnDirection {
+        return TurnDirection.Either;
+    }
+
+    get overflyTermFix(): boolean {
+        return false;
+    }
 }

@@ -206,6 +206,7 @@ export class LegsProcedure {
                   mappedLeg.additionalData.distanceInMinutes = currentLeg.distanceMinutes ? currentLeg.distance : 0;
                   mappedLeg.additionalData.course = currentLeg.trueDegrees ? currentLeg.course : A32NX_Util.magneticToTrue(currentLeg.course, Facilities.getMagVar(mappedLeg.infos.coordinates.lat, mappedLeg.infos.coordinates.long));
                   mappedLeg.additionalData.course = mappedLeg.additionalData.course;
+                  mappedLeg.additionalData.overfly = currentLeg.flyOver;
               }
 
               this._currentIndex++;

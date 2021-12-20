@@ -14,6 +14,7 @@ import { Geometry } from '@fmgc/guidance/Geometry';
 import { PathVector, PathVectorType } from '@fmgc/guidance/lnav/PathVector';
 import { LnavConfig } from '@fmgc/guidance/LnavConfig';
 import { TurnDirection } from '@fmgc/types/fstypes/FSEnums';
+import { Guidable } from '@fmgc/guidance/Guidable';
 import { CILeg } from '../legs/CI';
 import { arcDistanceToGo, arcGuidance, courseToFixDistanceToGo, courseToFixGuidance, maxBank } from '../CommonGeometry';
 
@@ -94,7 +95,7 @@ export class DirectToFixTransition extends Transition {
         return Math.abs(this.arcSweepAngle) < 3;
     }
 
-    recomputeWithParameters(isActive: boolean, tas: Knots, gs: MetresPerSecond, _ppos: Coordinates) {
+    recomputeWithParameters(_isActive: boolean, tas: Knots, gs: Knots, _ppos: Coordinates, _trueTrack: DegreesTrue, _previousGuidable: Guidable, _nextGuidable: Guidable) {
         if (this.isFrozen) {
             return;
         }

@@ -1,5 +1,6 @@
 import { Coordinates } from '@fmgc/flightplanning/data/geo';
 import { ControlLaw, LateralPathGuidance } from '@fmgc/guidance/ControlLaws';
+import { SegmentType } from '@fmgc/wtsdk';
 
 /**
  * Compute the remaining distance around an arc
@@ -117,7 +118,18 @@ export function pointOnArc(
     );
 }
 
+export function minBank(segment: SegmentType): Degrees {
+    return segment === SegmentType.Enroute ? 5 : 10;
+}
+
 export function maxBank(tas: Knots, toGuidedPath: boolean): Degrees {
+    /*
+    TODO
+    if (engineOut) {
+        return 15;
+    }
+    */
+
     if (toGuidedPath) {
         // roll limit 2 from honeywell doc
         if (tas < 100) {

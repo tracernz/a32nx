@@ -508,10 +508,12 @@ export class ManagedFlightPlan {
     }
 
     public setWaypointOverfly(index: number, value: boolean): void {
+        // FIXME origin airfield isn't necessarily index 0
         if (this.originAirfield && index === 0) {
             return;
         }
 
+        // FIXME origin airfield isn't necessarily last index (never will be with missed approach)
         if (this.destinationAirfield && index === this.length - 1) {
             return;
         }

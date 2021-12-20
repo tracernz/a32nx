@@ -1,5 +1,7 @@
 import { MathUtils } from '@shared/MathUtils';
 import { CALeg } from '@fmgc/guidance/lnav/legs/CA';
+import { CILeg } from '@fmgc/guidance/lnav/legs/CI';
+import { DFLeg } from '@fmgc/guidance/lnav/legs/DF';
 import { HALeg, HFLeg, HMLeg } from '@fmgc/guidance/lnav/legs/HX';
 import { TFLeg } from '@fmgc/guidance/lnav/legs/TF';
 import { Transition } from '@fmgc/guidance/lnav/Transition';
@@ -18,6 +20,7 @@ import { CFLeg } from '../legs/CF';
 import { CRLeg } from '../legs/CR';
 
 export type PrevLeg = CALeg | /* CDLeg | */ CRLeg | /* FALeg | */ HALeg | HFLeg | HMLeg;
+export type ReversionLeg = CFLeg | CILeg | DFLeg | TFLeg;
 export type NextLeg = /* AFLeg | */ CFLeg | /* FALeg | */ TFLeg;
 
 const cos = (input: Degrees) => Math.cos(input * (Math.PI / 180));
@@ -35,7 +38,7 @@ const compareTurnDirections = (sign: number, data: TurnDirection) => {
  */
 export class PathCaptureTransition extends Transition {
     constructor(
-        public previousLeg: PrevLeg | CFLeg | TFLeg, // FIXME temproary
+        public previousLeg: PrevLeg | ReversionLeg,
         public nextLeg: NextLeg,
     ) {
         super();
@@ -59,7 +62,7 @@ export class PathCaptureTransition extends Transition {
 
     private ftp: Coordinates;
 
-    recomputeWithParameters(isActive: boolean, tas: Knots, gs: MetresPerSecond, ppos: Coordinates, trueTrack: DegreesTrue, previousGuidable: Guidable) {
+    recomputeWithParameters(_isActive: boolean, tas: Knots, gs: Knots, _ppos: Coordinates, _trueTrack: DegreesTrue, previousGuidable: Guidable, _nextGuidable: Guidable) {
         if (this.isFrozen) {
             return;
         }

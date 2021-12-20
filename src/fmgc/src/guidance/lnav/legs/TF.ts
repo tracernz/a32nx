@@ -72,7 +72,7 @@ export class TFLeg extends XFLeg {
     }
 
     getPathEndPoint(): Coordinates | undefined {
-        if (this.nextGuidable?.isComputed && this.nextGuidable instanceof FixedRadiusTransition) {
+        if (this.nextGuidable?.isComputed && this.nextGuidable instanceof FixedRadiusTransition && !this.nextGuidable.isReverted) {
             return this.nextGuidable.getTurningPoints()[0];
         }
 

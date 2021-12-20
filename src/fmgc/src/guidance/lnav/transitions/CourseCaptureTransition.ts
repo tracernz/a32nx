@@ -74,7 +74,7 @@ export class CourseCaptureTransition extends Transition {
 
     public predictedPath: PathVector[] = [];
 
-    recomputeWithParameters(isActive: boolean, tas: Knots, gs: Knots, ppos: Coordinates, _trueTrack: DegreesTrue, previousGuidable: Guidable) {
+    recomputeWithParameters(_isActive: boolean, tas: Knots, gs: Knots, ppos: Coordinates, _trueTrack: DegreesTrue, previousGuidable: Guidable, _nextGuidable: Guidable) {
         const termFix = this.previousLeg.getPathEndPoint();
 
         let courseChange;
