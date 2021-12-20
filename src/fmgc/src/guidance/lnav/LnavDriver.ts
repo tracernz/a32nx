@@ -367,15 +367,11 @@ export class LnavDriver implements GuidanceComponent {
                     // FIXME we should stop relying on discos in the wpt objects, but for now it's fiiiiiine
                     // Hard-coded check for TF leg after the disco for now - only case where we don't wanna
                     // sequence this way is VM
-                    if (currentLeg instanceof TFLeg && currentLeg.to.endsInDiscontinuity && nextLeg instanceof TFLeg) {
+                    if (currentLeg instanceof XFLeg && currentLeg.fix.endsInDiscontinuity) {
                         this.sequenceDiscontinuity(currentLeg);
-                        // TODO this.guidanceController.automaticSequencing = false;
                     } else {
                         this.sequenceLeg(currentLeg, outboundTransition);
                     }
-                } else {
-                    this.sequenceDiscontinuity(currentLeg);
-                    // TODO this.guidanceController.automaticSequencing = false;
                 }
             }
         }
