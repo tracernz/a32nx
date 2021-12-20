@@ -236,7 +236,7 @@ export class PseudoWaypoints implements GuidanceComponent {
 
         let accumulator = 0;
 
-        if (true) {
+        if (false) {
             console.log(`[FMS/PWP] Starting placement of PWP '${debugString}': dist: ${distanceFromEnd.toFixed(2)}nm`);
         }
 

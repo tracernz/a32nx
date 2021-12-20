@@ -91,7 +91,7 @@ export class FixedRadiusTransition extends Transition {
         const finalBankAngle = Math.max(Math.min(bankAngle, maxBankAngle), minBankAngle);
 
         // Turn radius
-        this.radius = (tas ** 2 / (9.81 * Math.tan(finalBankAngle * Avionics.Utils.DEG2RAD))) / 6080.2;
+        this.radius = (tas ** 2 / (9.81 * Math.tan(finalBankAngle * Avionics.Utils.DEG2RAD))) / 6997.84;
 
         // Turn direction
         this.clockwise = courseChange >= 0;
@@ -203,7 +203,7 @@ export class FixedRadiusTransition extends Transition {
     }
 
     getNominalRollAngle(gs: Knots): Degrees {
-        return (this.clockwise ? 1 : -1) * Math.atan((gs ** 2) / (this.radius * 1852 * 9.81)) * (180 / Math.PI);
+        return (this.clockwise ? 1 : -1) * Math.atan(((gs * 463 / 900) ** 2) / (this.radius * 1852 * Constants.G)) * (180 / Math.PI);
     }
 
     get repr(): string {

@@ -106,7 +106,7 @@ export class DirectToFixTransition extends Transition {
         // FIXME fix for FX legs
         const nextFix = this.nextLeg.fix.infos.coordinates;
 
-        this.radius = gs ** 2 / (Constants.G * tan(maxBank(tas, true))) / 6080.2;
+        this.radius = gs ** 2 / (Constants.G * tan(maxBank(tas, true))) / 6997.84;
 
         let trackChange = MathUtils.diffAngle(this.previousLeg.outboundCourse, Geo.getGreatCircleBearing(this.previousLeg.getPathEndPoint(), nextFix), this.nextLeg.constrainedTurnDirection);
         if (Math.abs(trackChange) < 3) {
