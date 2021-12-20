@@ -124,7 +124,7 @@ export class EfisVectors {
     private static isVectorReasonable(vector: PathVector): boolean {
         const length = pathVectorLength(vector);
 
-        return length <= 322;
+        return length <= 350;
     }
 
     private transmitGroup(vectors: PathVector[], group: EfisVectorsGroup): void {
