@@ -30,7 +30,7 @@ export class DFLeg extends XFLeg {
     }
 
     getPathStartPoint(): Coordinates | undefined {
-        return this.inboundGuidable?.getPathEndPoint();
+        return this.inboundGuidable?.getPathEndPoint() ?? this.estimateStartPoint();
     }
 
     getPathEndPoint(): Coordinates | undefined {
@@ -115,10 +115,6 @@ export class DFLeg extends XFLeg {
 
     get outboundCourse(): Degrees {
         return Geo.getGreatCircleBearing(this.start, this.fix.infos.coordinates);
-    }
-
-    get distance(): NauticalMiles {
-        return undefined;
     }
 
     getDistanceToGo(ppos: Coordinates): NauticalMiles {

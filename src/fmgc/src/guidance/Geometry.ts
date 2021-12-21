@@ -83,7 +83,7 @@ export class Geometry {
             console.time('geometry_recompute');
         }
 
-        for (let i = activeLegIdx ?? 0; this.legs.get(i) || this.legs.get(i + 1); i++) {
+        for (let i = (activeLegIdx - 1) ?? 0; this.legs.get(i) || this.legs.get(i + 1); i++) {
             const prevLegInbound = this.transitions.get(i - 2) ?? this.legs.get(i - 2);
             const prevLeg = this.legs.get(i - 1);
             const inboundTransition = this.transitions.get(i - 1);
@@ -108,7 +108,7 @@ export class Geometry {
                 console.log(`[FMS/Geometry/Recompute] Recomputing leg at #${i} (${leg?.repr ?? '<none>'})`);
             }
 
-            if (inboundTransition) {
+            if (inboundTransition && this.legs.get(i - 1)) {
                 if (LnavConfig.DEBUG_GEOMETRY) {
                     console.log(`[FMS/Geometry/Recompute] Recomputing inbound transition (${inboundTransition.repr ?? '<unknown>'}) for leg (${leg?.repr ?? '<none>'})`);
                 }
@@ -300,7 +300,13 @@ export class Geometry {
 
     shouldSequenceLeg(activeLegIdx: number, ppos: LatLongAlt): boolean {
         const activeLeg = this.legs.get(activeLegIdx);
+        const inboundTransition = this.transitions.get(activeLegIdx - 1);
         const outboundTransition = this.transitions.get(activeLegIdx);
+
+        // Restrict sequencing in cases where we are still in inbound transition. Make an exception for very short legs as the transition could be overshooting.
+        if (inboundTransition?.isAbeam(ppos) && activeLeg.distance > 0.01) {
+            return false;
+        }
 
         if (activeLeg instanceof TFLeg && outboundTransition instanceof FixedRadiusTransition) {
             // Sequence at ITP

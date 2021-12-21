@@ -12,7 +12,6 @@ import { Constants } from '@shared/Constants';
 import { Guidable } from '@fmgc/guidance/Guidable';
 import { LnavConfig } from '@fmgc/guidance/LnavConfig';
 import { TurnDirection } from '@fmgc/types/fstypes/FSEnums';
-import { XFLeg } from '@fmgc/guidance/lnav/legs/XF';
 import { arcLength, maxBank } from '@fmgc/guidance/lnav/CommonGeometry';
 import { Leg } from '../legs/Leg';
 import { CFLeg } from '../legs/CF';
@@ -47,16 +46,11 @@ export class PathCaptureTransition extends Transition {
     }
 
     get turnDirection(): TurnDirection {
-        return this.nextLeg instanceof XFLeg ? this.nextLeg.fix.turnDirection : TurnDirection.Either;
+        return this.nextLeg.constrainedTurnDirection;
     }
 
     get deltaTrack(): Degrees {
         return MathUtils.fastToFixedNum(MathUtils.diffAngle(this.previousLeg.outboundCourse, this.nextLeg.inboundCourse), 1);
-    }
-
-    get courseVariation(): Degrees {
-        // TODO reverse turn direction
-        return this.deltaTrack;
     }
 
     public predictedPath: PathVector[] = [];

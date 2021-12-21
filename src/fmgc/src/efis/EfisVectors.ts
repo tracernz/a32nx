@@ -1,3 +1,8 @@
+// Copyright (c) 2021 FlyByWire Simulations
+// Copyright (c) 2021 Synaptic Simulations
+//
+// SPDX-License-Identifier: GPL-3.0
+
 import { GuidanceController } from '@fmgc/guidance/GuidanceController';
 import { EfisSide, EfisVectorsGroup } from '@shared/NavigationDisplay';
 import { PathVector, pathVectorLength } from '@fmgc/guidance/lnav/PathVector';
@@ -81,7 +86,7 @@ export class EfisVectors {
 
         // DASHED
 
-        const transmitDashed = !transmitActive; // TODO offset consideration
+        const transmitDashed = !transmitActive;
         const clearDashed = !transmitDashed && this.currentDashedVectors.length > 0;
 
         if (transmitDashed) {
