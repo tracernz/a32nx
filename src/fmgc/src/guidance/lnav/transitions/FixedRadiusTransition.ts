@@ -13,7 +13,7 @@ import { Constants } from '@shared/Constants';
 import { PathVector, PathVectorType } from '../PathVector';
 import { CFLeg } from '../legs/CF';
 
-type PrevLeg = CFLeg | DFLeg | TFLeg;
+type PrevLeg = CILeg | CFLeg | DFLeg | TFLeg;
 type NextLeg = CFLeg | /* FALeg | FMLeg | PILeg | */ TFLeg;
 
 const mod = (x: number, n: number) => x - Math.floor(x / n) * n;
@@ -96,8 +96,8 @@ export class FixedRadiusTransition extends Transition {
         this.radius = (tas ** 2 / (9.81 * Math.tan(finalBankAngle * Avionics.Utils.DEG2RAD))) / 6997.84;
 
         const defaultTurnDirection = this.sweepAngle >= 0 ? TurnDirection.Right : TurnDirection.Left;
-        const forcedTurn = (this.previousLeg.forcedTurnDirection === TurnDirection.Left || this.previousLeg.forcedTurnDirection === TurnDirection.Right)
-            && defaultTurnDirection !== this.previousLeg.forcedTurnDirection;
+        const forcedTurn = (this.previousLeg.constrainedTurnDirection === TurnDirection.Left || this.previousLeg.constrainedTurnDirection === TurnDirection.Right)
+            && defaultTurnDirection !== this.previousLeg.constrainedTurnDirection;
         const requiredTurnDistance = this.radius * Math.tan(Math.abs(this.sweepAngle)) + 0.1;
         const tooBig = this.previousLeg.distanceToTermFix < requiredTurnDistance;
         // in some circumstances we revert to a path capture transition where the fixed radius won't work well

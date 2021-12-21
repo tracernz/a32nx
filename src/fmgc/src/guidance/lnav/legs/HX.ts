@@ -47,9 +47,7 @@ export class HMLeg extends XFLeg {
     private immExitRequested = false;
 
     constructor(public to: WayPoint, public segment: SegmentType, public indexInFullPath: number) {
-        super();
-
-        this.fix = to;
+        super(to);
 
         this.inboundLegCourse = this.to.additionalData.course;
         this.outboundLegCourse = (this.inboundLegCourse + 180) % 360;

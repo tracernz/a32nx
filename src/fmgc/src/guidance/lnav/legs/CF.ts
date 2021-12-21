@@ -7,24 +7,21 @@ import { courseToFixDistanceToGo, courseToFixGuidance } from '@fmgc/guidance/lna
 import { XFLeg } from '@fmgc/guidance/lnav/legs/XF';
 import { LnavConfig } from '@fmgc/guidance/LnavConfig';
 import { FixedRadiusTransition } from '@fmgc/guidance/lnav/transitions/FixedRadiusTransition';
-import { TurnDirection } from '@fmgc/types/fstypes/FSEnums';
 import { PathVector, PathVectorType } from '../PathVector';
 
 export class CFLeg extends XFLeg {
     private computedPath: PathVector[] = [];
 
     constructor(
-        public readonly fix: WayPoint,
+        fix: WayPoint,
         public readonly course: DegreesTrue,
         segment: SegmentType,
         indexInFullPath: number,
-        constrainedTurnDirection = TurnDirection.Unknown,
     ) {
-        super();
+        super(fix);
 
         this.segment = segment;
         this.indexInFullPath = indexInFullPath;
-        this.constrainedTurnDirection = constrainedTurnDirection;
     }
 
     private inboundGuidable: Guidable | undefined;

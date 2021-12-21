@@ -26,7 +26,7 @@ export class TFLeg extends XFLeg {
 
     constraintType: WaypointConstraintType;
 
-    private course: Degrees;
+    private readonly course: Degrees;
 
     private computedPath: PathVector[] = [];
 
@@ -35,15 +35,13 @@ export class TFLeg extends XFLeg {
         to: WayPoint,
         segment: SegmentType,
         indexInFullPath: number,
-        constrainedTurnDirection = TurnDirection.Unknown,
     ) {
-        super();
+        super(to);
+
         this.from = from;
         this.to = to;
-        this.fix = to;
         this.segment = segment;
         this.indexInFullPath = indexInFullPath;
-        this.constrainedTurnDirection = constrainedTurnDirection;
         this.constraintType = to.constraintType;
         this.course = Avionics.Utils.computeGreatCircleHeading(
             this.from.infos.coordinates,

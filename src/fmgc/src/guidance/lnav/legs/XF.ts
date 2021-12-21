@@ -2,7 +2,13 @@ import { Leg } from '@fmgc/guidance/lnav/legs/Leg';
 import { TurnDirection } from '@fmgc/types/fstypes/FSEnums';
 
 export abstract class XFLeg extends Leg {
-    fix: WayPoint;
+    protected constructor(
+        public fix: WayPoint,
+    ) {
+        super();
+
+        this.constrainedTurnDirection = fix.turnDirection;
+    }
 
     get terminationWaypoint(): WayPoint {
         return this.fix;
@@ -11,6 +17,8 @@ export abstract class XFLeg extends Leg {
     get ident(): string {
         return this.fix.ident;
     }
+
+    constrainedTurnDirection = TurnDirection.Unknown;
 
     get forcedTurnDirection(): TurnDirection {
         return this.fix.turnDirection ?? TurnDirection.Either;

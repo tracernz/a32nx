@@ -7,7 +7,7 @@ import {
 } from '@fmgc/guidance/lnav/legs';
 import { SegmentType } from '@fmgc/wtsdk';
 import { Coordinates } from '@fmgc/flightplanning/data/geo';
-import { arcDistanceToGo, arcGuidance, pointOnArc } from '@fmgc/guidance/lnav/CommonGeometry';
+import { arcDistanceToGo, arcGuidance } from '@fmgc/guidance/lnav/CommonGeometry';
 import { XFLeg } from '@fmgc/guidance/lnav/legs/XF';
 import { PathVector, PathVectorType } from '../PathVector';
 
@@ -32,10 +32,10 @@ export class RFLeg extends XFLeg {
     private computedPath: PathVector[] = [];
 
     constructor(from: WayPoint, to: WayPoint, center: LatLongData, segment: SegmentType, indexInFullPath: number) {
-        super();
+        super(to);
+
         this.from = from;
         this.to = to;
-        this.fix = to;
         this.center = center;
         this.radius = Avionics.Utils.computeGreatCircleDistance(this.center, this.to.infos.coordinates);
         this.segment = segment;

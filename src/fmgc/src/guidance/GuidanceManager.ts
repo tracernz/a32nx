@@ -49,7 +49,7 @@ export class GuidanceManager {
     ): Leg {
         if (to?.additionalData?.legType === LegType.IF) {
             if (prevLeg && prevLeg instanceof XFLeg) {
-                return new TFLeg(prevLeg.fix, to, segment, toIndex, to.turnDirection);
+                return new TFLeg(prevLeg.fix, to, segment, toIndex);
             }
 
             return new IFLeg(to, segment, toIndex);
@@ -69,11 +69,11 @@ export class GuidanceManager {
 
         if (to.additionalData) {
             if (to.additionalData.legType === LegType.CF) {
-                return new CFLeg(to, to.additionalData.course, segment, toIndex, to.turnDirection);
+                return new CFLeg(to, to.additionalData.course, segment, toIndex);
             }
 
             if (to.additionalData.legType === LegType.DF) {
-                return new DFLeg(to, segment, toIndex, to.turnDirection);
+                return new DFLeg(to, segment, toIndex);
             }
 
             if (to.additionalData.legType === LegType.RF) {
@@ -124,7 +124,7 @@ export class GuidanceManager {
             return new VMLeg(to.additionalData.vectorsHeading, to.additionalData.vectorsCourse, segment, toIndex, to.turnDirection);
         }
 
-        return new TFLeg(from, to, segment, toIndex, to.turnDirection);
+        return new TFLeg(from, to, segment, toIndex);
     }
 
     getLeg(prevLeg: Leg | null, nextLeg: Leg | null, index: number, flightPlanIndex): Leg | null {

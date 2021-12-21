@@ -10,11 +10,11 @@ import { Transition } from '@fmgc/guidance/lnav/Transition';
 
 export class IFLeg extends XFLeg {
     constructor(
-        public fix: WayPoint,
+        fix: WayPoint,
         segment: SegmentType,
         indexInFullPath: number,
     ) {
-        super();
+        super(fix);
 
         this.segment = segment;
         this.indexInFullPath = indexInFullPath;
