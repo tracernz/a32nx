@@ -42,6 +42,10 @@ export class HMLeg extends XFLeg {
 
     protected outboundLegCourse: Degrees;
 
+    private immExitLength: NauticalMiles;
+
+    private immExitRequested = false;
+
     constructor(public to: WayPoint, public segment: SegmentType, public indexInFullPath: number) {
         super();
 
@@ -49,6 +53,10 @@ export class HMLeg extends XFLeg {
 
         this.inboundLegCourse = this.to.additionalData.course;
         this.outboundLegCourse = (this.inboundLegCourse + 180) % 360;
+    }
+
+    get ident(): string {
+        return this.to.ident;
     }
 
     /**
@@ -60,11 +68,39 @@ export class HMLeg extends XFLeg {
         this.state = initialState;
     }
 
+    /**
+     * Use for IMM EXIT set/reset function on the MCDU
+     * @param
+     */
+    setImmediateExit(exit: boolean, ppos: LatLongData): void {
+        if (exit) {
+            switch (this.state) {
+            case HxLegGuidanceState.Arc1:
+                // let's do a circle
+                this.immExitLength = 0;
+                break;
+            case HxLegGuidanceState.Outbound:
+                const { fixA } = this.computeGeometry();
+                // TODO maybe need a little anticipation distance added.. we will start off with XTK and should already be at or close to max bank...
+                this.immExitLength = courseToFixDistanceToGo(ppos, this.inboundLegCourse, fixA);
+                break;
+            case HxLegGuidanceState.Arc2:
+            case HxLegGuidanceState.Inbound:
+                // keep the normal leg distance as we can't shorten
+                this.immExitLength = this.computeLegDistance();
+                break;
+            // no default
+            }
+        }
+
+        this.immExitRequested = exit;
+    }
+
     // TODO temp until vnav can give this
-    public targetSpeed(): Knots {
+    targetSpeed(): Knots {
         // TODO unhax, need altitude => speed from vnav if not coded
         const alt = this.to.legAltitude1;
-        let groundSpeed = 220; // TODO green dot
+        let groundSpeed = 220; // TODO green dot, wind (from VNAV predictions)
         if (this.to.speedConstraint > 100) {
             groundSpeed = Math.min(groundSpeed, this.to.speedConstraint);
         }
@@ -83,7 +119,15 @@ export class HMLeg extends XFLeg {
         return groundSpeed;
     }
 
-    protected computeLegDistance(_groundSpeed?: Knots): NauticalMiles {
+    get outboundStartPoint(): Coordinates {
+        const { fixB } = this.computeGeometry();
+        return fixB;
+    }
+
+    public computeLegDistance(): NauticalMiles {
+        if (this.immExitRequested) {
+            return this.immExitLength;
+        }
         // is distance in NM?
         if (this.to.additionalData.distance > 0) {
             return this.to.additionalData.distance;
@@ -143,10 +187,8 @@ export class HMLeg extends XFLeg {
     }
 
     get distance(): NauticalMiles {
-        // TODO get hold speed/predicted speed
-        const groundSpeed = SimVar.GetSimVarValue('GPS GROUND SPEED', 'knots');
-
-        return this.computeLegDistance(groundSpeed) * 4;
+        // TODO fix...
+        return this.computeLegDistance() * 4;
     }
 
     get inboundCourse(): Degrees {
@@ -183,7 +225,7 @@ export class HMLeg extends XFLeg {
             return courseToFixDistanceToGo(ppos, this.outboundLegCourse, fixB) + this.computeLegDistance() + this.radius * Math.PI;
         case HxLegGuidanceState.Arc2:
             return arcDistanceToGo(ppos, fixB, arcCentreFix2, sweepAngle) + this.computeLegDistance();
-        default:
+        // no default
         }
 
         return 1;
