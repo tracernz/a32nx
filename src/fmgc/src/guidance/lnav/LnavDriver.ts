@@ -201,21 +201,6 @@ export class LnavDriver implements GuidanceComponent {
                         phiCommand = forcedTurnPhi;
                     }
 
-                    // Update and take into account turn state; only guide using phi during a forced turn
-
-                    if (this.turnState !== LnavTurnState.Normal) {
-                        if (Math.abs(trackAngleError) < GuidanceConstants.FORCED_TURN_TKAE_THRESHOLD) {
-                            // Stop forcing turn
-                            this.turnState = LnavTurnState.Normal;
-                        }
-
-                        const forcedTurnPhi = this.turnState === LnavTurnState.ForceLeftTurn ? -maxBank(tas, true) : maxBank(tas, true);
-
-                        crossTrackError = 0;
-                        trackAngleError = 0;
-                        phiCommand = forcedTurnPhi;
-                    }
-
                     // Set FG inputs
 
                     if (!this.lastAvail) {
