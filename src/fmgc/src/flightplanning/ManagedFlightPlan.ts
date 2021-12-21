@@ -1167,12 +1167,15 @@ export class ManagedFlightPlan {
     }
 
     private addWaypointAvoidingDuplicates(waypoint: WayPoint, waypointIndex: number, segment: FlightPlanSegment): void {
+        const dupWp = this.waypoints.find((wp) => wp.ident === waypoint.ident);
         const index = this.waypoints.findIndex((wp) => wp.ident === waypoint.ident); // FIXME this should really compare icaos...
 
         // FIXME this should collapse any legs between the old position and the newly inserted position
         const wptDist = Math.abs(index - waypointIndex);
 
-        if (wptDist <= 2) {
+        const wptSameLegTypes = dupWp?.additionalData?.legType === waypoint.additionalData?.legType;
+
+        if (wptSameLegTypes && wptDist <= 2) {
             // console.log('  -------> MFP: addWaypointAvoidingDuplicates: removing duplicate waypoint ', this.getWaypoint(index).ident);
             const removedWp = this.getWaypoint(index);
             if (waypoint.legAltitudeDescription === AltitudeDescriptor.Empty && removedWp.legAltitudeDescription !== AltitudeDescriptor.Empty) {
