@@ -28,22 +28,17 @@ export class CourseChange {
         trackChange: Degrees,
         radius: NauticalMiles,
     ): Degrees {
-        if (trackChange > 0) {
-            if (-turnCenterDistance >= radius) {
+        if (turnCenterDistance > 0) {
+            if (turnCenterDistance < radius) {
                 return trackChange + 45;
             }
             return trackChange - 45;
         }
 
-        if (turnCenterDistance > 0 && turnCenterDistance >= -radius) {
+        if (-turnCenterDistance < radius) {
             return trackChange - 45;
         }
-
-        if (Math.abs(turnCenterDistance) >= radius) {
-            return trackChange + 45;
-        }
-
-        return trackChange - 45;
+        return trackChange + 45;
     }
 
     static acuteFar(
