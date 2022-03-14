@@ -255,11 +255,11 @@ export class Geometry {
     }
 
     static getLegPredictedTas(leg: Leg) {
-        return leg.predictedTas;
+        return leg?.predictedTas;
     }
 
     static getLegPredictedGs(leg: Leg) {
-        return leg.predictedGs;
+        return leg?.predictedGs;
     }
 
     /**
