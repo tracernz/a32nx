@@ -34,6 +34,14 @@ export abstract class Transition extends Guidable {
         this.isFrozen = true;
     }
 
+    /**
+     * Used to update the {@link previousLeg} and {@link nextLeg} properties.
+     */
+    setNeighboringLegs(previous: Leg, next: Leg) {
+        this.previousLeg = previous;
+        this.nextLeg = next;
+    }
+
     recomputeWithParameters(
         _isActive: boolean,
         _tas: Knots,

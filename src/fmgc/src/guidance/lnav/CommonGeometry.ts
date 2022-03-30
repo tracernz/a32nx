@@ -309,3 +309,7 @@ export function arcLength(radius: NauticalMiles, sweepAngle: Degrees): NauticalM
 
     return circumference / 360 * Math.abs(sweepAngle);
 }
+
+export function reciprocal(course: Degrees): Degrees {
+    return Avionics.Utils.clampAngle(course + 180);
+}

@@ -73,27 +73,37 @@ export class CRLeg extends Leg {
             this.radial,
         );
 
-        this.computedPath = [{
-            type: PathVectorType.Line,
-            startPoint: this.getPathStartPoint(),
-            endPoint: this.intercept,
-        }];
+        const overshot = distanceTo(this.getPathStartPoint(), this.intercept) >= 5_000;
 
-        this.isComputed = true;
+        if (this.intercept && !overshot) {
+            this.computedPath = [{
+                type: PathVectorType.Line,
+                startPoint: this.getPathStartPoint(),
+                endPoint: this.intercept,
+            }];
 
-        if (LnavConfig.DEBUG_PREDICTED_PATH) {
-            this.computedPath.push(
-                {
-                    type: PathVectorType.DebugPoint,
-                    startPoint: this.getPathStartPoint(),
-                    annotation: 'CR START',
-                },
-                {
-                    type: PathVectorType.DebugPoint,
-                    startPoint: this.getPathEndPoint(),
-                    annotation: 'CR END',
-                },
-            );
+            this.isNull = false;
+            this.isComputed = true;
+
+            if (LnavConfig.DEBUG_PREDICTED_PATH) {
+                this.computedPath.push(
+                    {
+                        type: PathVectorType.DebugPoint,
+                        startPoint: this.getPathStartPoint(),
+                        annotation: 'CR START',
+                    },
+                    {
+                        type: PathVectorType.DebugPoint,
+                        startPoint: this.getPathEndPoint(),
+                        annotation: 'CR END',
+                    },
+                );
+            }
+        } else {
+            this.predictedPath.length = 0;
+
+            this.isNull = true;
+            this.isComputed = true;
         }
     }
 
