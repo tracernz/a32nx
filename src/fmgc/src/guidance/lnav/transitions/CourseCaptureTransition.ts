@@ -19,7 +19,7 @@ import { PathVector, PathVectorType } from '@fmgc/guidance/lnav/PathVector';
 import { TurnDirection } from '@fmgc/types/fstypes/FSEnums';
 import { LnavConfig } from '@fmgc/guidance/LnavConfig';
 import { AFLeg } from '@fmgc/guidance/lnav/legs/AF';
-import { arcDistanceToGo, maxBank } from '../CommonGeometry';
+import { arcDistanceToGo, arcLength, maxBank } from '../CommonGeometry';
 import { CFLeg } from '../legs/CF';
 import { CRLeg } from '../legs/CR';
 import { CILeg } from '../legs/CI';
@@ -123,9 +123,12 @@ export class CourseCaptureTransition extends Transition {
                 endPoint: this.endPoint,
             });
 
+            this.isNull = true;
+
             return;
         }
 
+        this.isNull = false;
         this.isArc = true;
         this.startPoint = initialTurningPoint;
         this.center = turnCenter;
@@ -171,8 +174,11 @@ export class CourseCaptureTransition extends Transition {
     }
 
     get distance(): NauticalMiles {
-        const circumference = 2 * Math.PI * this.radius;
-        return circumference / 360 * this.angle;
+        if (this.isNull) {
+            return 0;
+        }
+
+        return arcLength(this.radius, this.angle);
     }
 
     getTurningPoints(): [Coordinates, Coordinates] {
