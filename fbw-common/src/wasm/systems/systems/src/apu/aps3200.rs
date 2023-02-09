@@ -771,6 +771,7 @@ impl SimulationElement for Aps3200StartMotor {
 #[cfg(test)]
 mod apu_generator_tests {
     use ntest::assert_about_eq;
+    use num_traits::Zero;
     use uom::si::frequency::hertz;
 
     use crate::{
@@ -960,6 +961,21 @@ mod apu_generator_tests {
             .run(Duration::from_secs(1));
 
         assert!(test_bed.generator_is_unpowered());
+    }
+
+    // TODO doesn't start until self test complete
+    #[test]
+    fn no_start_before_self_test_complete() {
+        let mut test_bed = test_bed_with().starting_apu().run(Duration::from_secs(1));
+
+        assert!(test_bed.n().value().is_zero());
+    }
+
+    #[test]
+    fn start_after_self_test_complete() {
+        let mut test_bed = test_bed_with().starting_apu().run(Duration::from_secs(4));
+
+        assert!(!test_bed.n().value().is_zero());
     }
 
     #[test]

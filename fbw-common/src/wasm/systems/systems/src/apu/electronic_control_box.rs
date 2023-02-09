@@ -7,8 +7,9 @@ use crate::simulation::{InitContext, VariableIdentifier};
 use crate::{
     pneumatic::PneumaticValveSignal,
     shared::{
-        arinc429::SignStatus, ApuBleedAirValveSignal, ApuMaster, ApuStart, ConsumePower,
-        ContactorSignal, ControllerSignal, ElectricalBusType, ElectricalBuses, PneumaticValve,
+        arinc429::SignStatus, random_from_normal_distribution, ApuBleedAirValveSignal, ApuMaster,
+        ApuStart, ConsumePower, ContactorSignal, ControllerSignal, ElectricalBusType,
+        ElectricalBuses, PneumaticValve,
     },
     simulation::{SimulationElement, SimulatorWriter, UpdateContext, Write},
 };
@@ -47,11 +48,14 @@ pub(super) struct ElectronicControlBox {
     egt_warning_temperature: ThermodynamicTemperature,
     n_above_95_duration: Duration,
     fire_button_is_released: bool,
+    remaining_power_on_self_test_duration: Duration,
+    was_on: bool,
 }
 impl ElectronicControlBox {
     const RUNNING_WARNING_EGT: f64 = 682.;
     const START_MOTOR_POWERED_UNTIL_N: f64 = 55.;
     pub const BLEED_AIR_COOLDOWN_DURATION_MILLIS: u64 = 120000;
+    const POWER_ON_SELF_TEST_NOMINAL_MILLIS: f64 = 3000.;
 
     pub fn new(context: &mut InitContext, powered_by: ElectricalBusType) -> Self {
         ElectronicControlBox {
@@ -87,6 +91,9 @@ impl ElectronicControlBox {
             ),
             n_above_95_duration: Duration::from_secs(0),
             fire_button_is_released: false,
+            remaining_power_on_self_test_duration:
+                ElectronicControlBox::calculate_power_on_self_test_duration(),
+            was_on: false,
         }
     }
 
@@ -99,6 +106,10 @@ impl ElectronicControlBox {
 
     fn is_powered_by_apu_itself(&self) -> bool {
         self.n().get::<percent>() > 70.
+    }
+
+    fn power_on_self_test_is_complete(&self) -> bool {
+        self.remaining_power_on_self_test_duration.is_zero()
     }
 
     pub fn update_overhead_panel_state(
@@ -148,7 +159,16 @@ impl ElectronicControlBox {
 
         if !self.is_on() {
             self.fault = None;
+            if self.was_on {
+                self.remaining_power_on_self_test_duration =
+                    ElectronicControlBox::calculate_power_on_self_test_duration();
+            }
+        } else if !self.remaining_power_on_self_test_duration.is_zero() {
+            self.remaining_power_on_self_test_duration -= context
+                .delta()
+                .min(self.remaining_power_on_self_test_duration);
         }
+        self.was_on = self.is_on();
     }
 
     pub fn update_bleed_air_valve_state(
@@ -197,6 +217,13 @@ impl ElectronicControlBox {
             TurbineState::Running => running_warning_temperature,
             TurbineState::Stopping => running_warning_temperature,
         }
+    }
+
+    fn calculate_power_on_self_test_duration() -> Duration {
+        Duration::from_millis(random_from_normal_distribution(
+            ElectronicControlBox::POWER_ON_SELF_TEST_NOMINAL_MILLIS,
+            200.,
+        ) as u64)
     }
 
     /// Indicates if a fault has occurred which would cause the
@@ -263,7 +290,7 @@ impl ControllerSignal<ContactorSignal> for ElectronicControlBox {
             return None;
         }
 
-        if self.is_inoperable() {
+        if self.is_inoperable() || !self.power_on_self_test_is_complete() {
             return Some(ContactorSignal::Open);
         }
 
