@@ -1,9 +1,10 @@
-import { Subject, Subscribable, MappedSubject, ArraySubject, DebounceTimer } from 'msfssdk';
+import { Subject, Subscribable, MappedSubject, ArraySubject, DebounceTimer, EventBus } from 'msfssdk';
 
 import { Arinc429Register, Arinc429Word } from '@shared/arinc429';
 import { NXLogicClockNode, NXLogicConfirmNode, NXLogicMemoryNode, NXLogicPulseNode, NXLogicTriggeredMonostableNode } from '@instruments/common/NXLogic';
 import { NXDataStore } from '@shared/persistence';
 import { VerticalMode } from '@shared/autopilot';
+import { EwdSimvars } from 'instruments/src/EWD/shared/EwdSimvarPublisher';
 
 export function xor(a: boolean, b: boolean): boolean {
     return !!((a ? 1 : 0) ^ (b ? 1 : 0));
@@ -39,6 +40,8 @@ export class PseudoFWC {
 
     /** The time to play the single chime sound in ms */
     private static readonly AURAL_SC_PLAY_TIME = 500;
+
+    private static readonly arinc429Cache = Arinc429Register.empty();
 
     /* PSEUDO FWC VARIABLES */
 
@@ -489,22 +492,64 @@ export class PseudoFWC {
 
     private readonly N1Eng2 = Subject.create(0);
 
-    private readonly N2Eng1 = Subject.create(0);
+    private readonly ecu1ADiscrete3Raw = Subject.create(0);
 
-    private readonly N2Eng2 = Subject.create(0);
+    private readonly ecu1BDiscrete3Raw = Subject.create(0);
 
-    private readonly N1IdleEng = Subject.create(0);
+    private readonly ecu2ADiscrete3Raw = Subject.create(0);
 
-    // FIXME ECU should provide this in a discrete word
-    private readonly engine1AboveIdle = MappedSubject.create(([n1, idleN1]) => n1 > (idleN1 + 0.5), this.N1Eng1, this.N1IdleEng);
+    private readonly ecu2BDiscrete3Raw = Subject.create(0);
 
-    private readonly engine2AboveIdle = MappedSubject.create(([n1, idleN1]) => n1 > (idleN1 + 0.5), this.N1Eng2, this.N1IdleEng);
+    // FIXME Use Arinc429Subject after NDv2 merge
+    private readonly engine1NotIdle = MappedSubject.create(
+        ([discreteA, discreteB]) => {
+            PseudoFWC.arinc429Cache.set(discreteA);
+            let idle = PseudoFWC.arinc429Cache.bitValueOr(29, true);
+            PseudoFWC.arinc429Cache.set(discreteB);
+            idle ||= PseudoFWC.arinc429Cache.bitValueOr(29, true);
+            return !idle;
+        },
+        this.ecu1ADiscrete3Raw,
+        this.ecu1BDiscrete3Raw,
+    );
 
-    // FIXME ECU should provide this in a discrete word, and calculate based on f(OAT)
-    // this is absolute min at low temperatures
-    private readonly engine1CoreAtOrAboveMinIdle = MappedSubject.create(([n2]) => n2 >= (100 * 10630 / 16645), this.N2Eng1);
+    private readonly engine2NotIdle = MappedSubject.create(
+        ([discreteA, discreteB]) => {
+            PseudoFWC.arinc429Cache.set(discreteA);
+            let idle = PseudoFWC.arinc429Cache.bitValueOr(29, true);
+            PseudoFWC.arinc429Cache.set(discreteB);
+            idle ||= PseudoFWC.arinc429Cache.bitValueOr(29, true);
+            return !idle;
+        },
+        this.ecu2ADiscrete3Raw,
+        this.ecu2BDiscrete3Raw,
+    );
 
-    private readonly engine2CoreAtOrAboveMinIdle = MappedSubject.create(([n2]) => n2 >= (100 * 10630 / 16645), this.N2Eng2);
+    private readonly engine1CoreAtOrAboveMinIdle = MappedSubject.create(
+        ([discreteA, discreteB]) => {
+            PseudoFWC.arinc429Cache.set(discreteA);
+            let atOrAboveMinIdle = PseudoFWC.arinc429Cache.bitValueOr(18, false);
+            PseudoFWC.arinc429Cache.set(discreteB);
+            atOrAboveMinIdle ||= PseudoFWC.arinc429Cache.bitValueOr(18, false);
+            return atOrAboveMinIdle;
+        },
+        this.ecu1ADiscrete3Raw,
+        this.ecu1BDiscrete3Raw,
+    );
+
+    private readonly engine2CoreAtOrAboveMinIdle = MappedSubject.create(
+        ([discreteA, discreteB]) => {
+            PseudoFWC.arinc429Cache.set(discreteA);
+            let atOrAboveMinIdle = PseudoFWC.arinc429Cache.bitValueOr(18, false);
+            PseudoFWC.arinc429Cache.set(discreteB);
+            atOrAboveMinIdle ||= PseudoFWC.arinc429Cache.bitValueOr(18, false);
+            return atOrAboveMinIdle;
+        },
+        this.ecu2ADiscrete3Raw,
+        this.ecu2BDiscrete3Raw,
+    );
+
+    private readonly engDualFaultConfirm = new NXLogicConfirmNode(2, true);
 
     private readonly engDualFault = Subject.create(false);
 
@@ -677,7 +722,7 @@ export class PseudoFWC {
 
     private readonly configPortableDevices = Subject.create(false);
 
-    constructor() {
+    constructor(private readonly bus: EventBus) {
         this.memoMessageLeft.sub((_i, _t, _v) => {
             [1, 2, 3, 4, 5, 6, 7].forEach((value) => {
                 SimVar.SetSimVarValue(`L:A32NX_EWD_LOWER_LEFT_LINE_${value}`, 'string', '');
@@ -700,6 +745,8 @@ export class PseudoFWC {
     }
 
     init(): void {
+        const sub = this.bus.getSubscriber<EwdSimvars>();
+
         this.toConfigNormal.sub((normal) => SimVar.SetSimVarValue('L:A32NX_TO_CONFIG_NORMAL', 'bool', normal));
         this.fwcFlightPhase.sub(() => this.flightPhaseEndedPulseNode.write(true, 0));
 
@@ -714,6 +761,11 @@ export class PseudoFWC {
             SimVar.SetSimVarValue('L:A32NX_MASTER_WARNING', 'Bool', warning);
             SimVar.SetSimVarValue('L:Generic_Master_Warning_Active', 'Bool', warning);
         });
+
+        sub.on('ecu1ADiscrete3').whenChanged().handle((d) => this.ecu1ADiscrete3Raw.set(d));
+        sub.on('ecu1BDiscrete3').whenChanged().handle((d) => this.ecu1BDiscrete3Raw.set(d));
+        sub.on('ecu2ADiscrete3').whenChanged().handle((d) => this.ecu2ADiscrete3Raw.set(d));
+        sub.on('ecu2BDiscrete3').whenChanged().handle((d) => this.ecu2BDiscrete3Raw.set(d));
     }
 
     mapOrder(array, order): [] {
@@ -852,10 +904,7 @@ export class PseudoFWC {
         this.engine2State.set(SimVar.GetSimVarValue('L:A32NX_ENGINE_STATE:2', 'Enum'));
         this.N1Eng1.set(SimVar.GetSimVarValue('L:A32NX_ENGINE_N1:1', 'number'));
         this.N1Eng2.set(SimVar.GetSimVarValue('L:A32NX_ENGINE_N1:2', 'number'));
-        this.N2Eng1.set(SimVar.GetSimVarValue('L:A32NX_ENGINE_N2:1', 'number'));
-        this.N2Eng2.set(SimVar.GetSimVarValue('L:A32NX_ENGINE_N2:2', 'number'));
-        this.N1IdleEng.set(SimVar.GetSimVarValue('L:A32NX_ENGINE_IDLE_N1', 'number'));
-        const oneEngineAboveMinPower = this.engine1AboveIdle.get() || this.engine2AboveIdle.get();
+        const oneEngineAboveMinPower = this.engine1NotIdle.get() || !this.engine1NotIdle.get();
 
         this.engine1Generator.set(SimVar.GetSimVarValue('L:A32NX_ELEC_ENG_GEN_1_POTENTIAL_NORMAL', 'bool'));
         this.engine2Generator.set(SimVar.GetSimVarValue('L:A32NX_ELEC_ENG_GEN_2_POTENTIAL_NORMAL', 'bool'));
@@ -899,12 +948,19 @@ export class PseudoFWC {
         const raAbove1500 = this.radioHeight1.valueOr(0) > 1500 || this.radioHeight2.valueOr(0) > 1500;
         this.eng1Or2TakeoffPower.set(toPower || (this.eng1Or2TakeoffPowerConfirm.read() && !raAbove1500));
 
-        this.engDualFault.set(!this.aircraftOnGround.get() && (
-            (this.fireButton1.get() && this.fireButton2.get())
-            || (!this.engine1ValueSwitch.get() && !this.engine2ValueSwitch.get())
-            || (this.engine1State.get() === 0 && this.engine2State.get() === 0)
-            || (!this.engine1CoreAtOrAboveMinIdle.get() && !this.engine2CoreAtOrAboveMinIdle.get())
-        ));
+        this.engDualFaultConfirm.write(
+            (this.engine1State.get() === 0 && this.engine2State.get() === 0)
+            || (!this.engine1CoreAtOrAboveMinIdle.get() && !this.engine2CoreAtOrAboveMinIdle.get()),
+            deltaTime,
+        );
+        this.engDualFault.set(
+            !this.aircraftOnGround.get()
+            && (
+                (this.fireButton1.get() && this.fireButton2.get())
+                || (!this.engine1ValueSwitch.get() && !this.engine2ValueSwitch.get())
+                || this.engDualFaultConfirm.read()
+            ),
+        );
 
         /* HYDRAULICS */
 

@@ -180,6 +180,10 @@ class SimVars {
   ID ThrustLimitMct;
   ID PacksState1;
   ID PacksState2;
+  ID Ecu1ADiscrete3;
+  ID Ecu1BDiscrete3;
+  ID Ecu2ADiscrete3;
+  ID Ecu2BDiscrete3;
 
   SimVars() { this->initializeVars(); }
 
@@ -251,6 +255,11 @@ class SimVars {
     PacksState1 = register_named_variable("A32NX_COND_PACK_FLOW_VALVE_1_IS_OPEN");
     PacksState2 = register_named_variable("A32NX_COND_PACK_FLOW_VALVE_2_IS_OPEN");
 
+    Ecu1ADiscrete3 = register_named_variable("A32NX_ECU1A_DISCRETE_3");
+    Ecu1BDiscrete3 = register_named_variable("A32NX_ECU1B_DISCRETE_3");
+    Ecu2ADiscrete3 = register_named_variable("A32NX_ECU2A_DISCRETE_3");
+    Ecu2BDiscrete3 = register_named_variable("A32NX_ECU2B_DISCRETE_3");
+
     this->setDeveloperState(0);
     this->setEngine1N2(0);
     this->setEngine2N2(0);
@@ -289,6 +298,10 @@ class SimVars {
     this->setThrustLimitFlex(0);
     this->setThrustLimitClimb(0);
     this->setThrustLimitMct(0);
+    this->setEcu1ADiscrete3(0);
+    this->setEcu1BDiscrete3(0);
+    this->setEcu2ADiscrete3(0);
+    this->setEcu2BDiscrete3(0);
 
     m_Units = new Units();
   }
@@ -332,6 +345,10 @@ class SimVars {
   void setThrustLimitFlex(FLOAT64 value) { set_named_variable_value(ThrustLimitFlex, value); }
   void setThrustLimitClimb(FLOAT64 value) { set_named_variable_value(ThrustLimitClimb, value); }
   void setThrustLimitMct(FLOAT64 value) { set_named_variable_value(ThrustLimitMct, value); }
+  void setEcu1ADiscrete3(FLOAT64 value) { set_named_variable_value(Ecu1ADiscrete3, value ); }
+  void setEcu1BDiscrete3(FLOAT64 value) { set_named_variable_value(Ecu1BDiscrete3, value ); }
+  void setEcu2ADiscrete3(FLOAT64 value) { set_named_variable_value(Ecu2ADiscrete3, value ); }
+  void setEcu2BDiscrete3(FLOAT64 value) { set_named_variable_value(Ecu2BDiscrete3, value ); }
 
   // Collection of SimVar/LVar 'get' Functions
   FLOAT64 getDeveloperState() { return get_named_variable_value(DevVar); }

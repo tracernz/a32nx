@@ -42,7 +42,9 @@ clang++ \
   -I "${MSFS_SDK}/SimConnect SDK/include" \
   -I "${COMMON_DIR}/fadec_common/src" \
   -I "${COMMON_DIR}/fbw_common/src/inih" \
+  -I "${COMMON_DIR}/fbw_common/src" \
   -I "${DIR}/common" \
+  "${COMMON_DIR}/fbw_common/src/Arinc429.cpp" \
   "${DIR}/src/FadecGauge.cpp"
 
 # restore directory

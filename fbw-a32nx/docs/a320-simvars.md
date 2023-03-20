@@ -2491,6 +2491,19 @@ In the variables below, {number} should be replaced with one item in the set: { 
     - Number (quarts)
     - Total engine {index} oil quantity in the oil tank
 
+- A32NX_ECU{engine}{ecu}_DISCRETE_3
+    - Arinc429<Discrete>
+    - {engine}
+        - 1
+        - 2
+    - {ecu}
+        - A
+        - B
+    - | Bit |                Description               |
+      |:---:|:----------------------------------------:|
+      | 18  | Engine core (N2) above minimum idle      |
+      | 29  | Engine at idle thrust                    |
+
 ## Air Conditioning / Pressurisation / Ventilation
 
 - A32NX_COND_{id}_TEMP

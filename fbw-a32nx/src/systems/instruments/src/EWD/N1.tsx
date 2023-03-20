@@ -1,4 +1,5 @@
 import { ClockEvents, EventBus, DisplayComponent, FSComponent, Subject, Subscribable, VNode } from 'msfssdk';
+import { Arinc429Register } from '@shared/arinc429';
 import { EwdSimvars } from './shared/EwdSimvarPublisher';
 import { GaugeComponent, GaugeMarkerComponent, GaugeMaxComponent, ThrottlePositionDonutComponent, valueRadianAngleConverter } from '../MsfsAvionicsCommon/gauges';
 import { Layer } from '../MsfsAvionicsCommon/Layer';
@@ -24,7 +25,9 @@ export class AvailRev extends DisplayComponent<AvailRevProps> {
 
     private n1: number = 0;
 
-    private idleN1: number = 0;
+    private readonly ecuADiscrete3 = Arinc429Register.empty();
+
+    private readonly ecuBDiscrete3 = Arinc429Register.empty();
 
     private reverse: boolean = false;
 
@@ -45,9 +48,10 @@ export class AvailRev extends DisplayComponent<AvailRevProps> {
             this.n1 = n1;
         });
 
-        sub.on('idleN1').whenChanged().handle((n1) => {
-            this.idleN1 = n1;
-        });
+        const ecuATopic = `ecu${this.props.engine}ADiscrete3` as keyof EwdSimvars;
+        const ecuBTopic = `ecu${this.props.engine}BDiscrete3` as keyof EwdSimvars;
+        sub.on(ecuATopic).whenChanged().handle((d) => this.ecuADiscrete3.set(d as number));
+        sub.on(ecuBTopic).whenChanged().handle((d) => this.ecuBDiscrete3.set(d as number));
 
         sub.on(`engine${this.props.engine}Reverse`).whenChanged().handle((rev) => {
             this.reverse = rev;
@@ -62,7 +66,7 @@ export class AvailRev extends DisplayComponent<AvailRevProps> {
         });
 
         sub.on('realTime').handle((_t) => {
-            const availVisible = this.n1 > Math.floor(this.idleN1) && this.state === 2;
+            const availVisible = (this.ecuADiscrete3.bitValueOr(18, false) || this.ecuBDiscrete3.bitValueOr(18, false)) && this.state === 2;
             const isVisible = (availVisible || this.reverse) || !this.fadec;
             const revReady = this.fadec && Math.round(this.reverseNozzle * 100) > 5;
 

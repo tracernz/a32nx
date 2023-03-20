@@ -1,3 +1,4 @@
+import { Arinc429Register } from '@shared/arinc429';
 import { ClockEvents, EventBus, DisplayComponent, FSComponent, Subject, VNode } from 'msfssdk';
 import { EwdSimvars } from './shared/EwdSimvarPublisher';
 
@@ -9,11 +10,13 @@ export class Idle extends DisplayComponent<IdleProps> {
 
     private visibility = Subject.create('hidden');
 
-    private engine1N1: number=0;
+    private readonly ecu1ADiscrete3 = Arinc429Register.empty();
 
-    private engine2N1: number=0;
+    private readonly ecu1BDiscrete3 = Arinc429Register.empty();
 
-    private idleN1: number = 0;
+    private readonly ecu2ADiscrete3 = Arinc429Register.empty();
+
+    private readonly ecu2BDiscrete3 = Arinc429Register.empty();
 
     private fwcFlightPhase: number = 0;
 
@@ -28,17 +31,10 @@ export class Idle extends DisplayComponent<IdleProps> {
 
         const sub = this.props.bus.getSubscriber<ClockEvents & EwdSimvars>();
 
-        sub.on('engine1N1').whenChanged().handle((n1) => {
-            this.engine1N1 = n1;
-        });
-
-        sub.on('engine2N1').whenChanged().handle((n1) => {
-            this.engine2N1 = n1;
-        });
-
-        sub.on('idleN1').whenChanged().handle((n1) => {
-            this.idleN1 = n1;
-        });
+        sub.on('ecu1ADiscrete3').whenChanged().handle((d) => this.ecu1ADiscrete3.set(d));
+        sub.on('ecu1BDiscrete3').whenChanged().handle((d) => this.ecu1BDiscrete3.set(d));
+        sub.on('ecu2ADiscrete3').whenChanged().handle((d) => this.ecu2ADiscrete3.set(d));
+        sub.on('ecu2BDiscrete3').whenChanged().handle((d) => this.ecu2BDiscrete3.set(d));
 
         sub.on('fwcFlightPhase').whenChanged().handle((p) => {
             this.fwcFlightPhase = p;
@@ -49,8 +45,10 @@ export class Idle extends DisplayComponent<IdleProps> {
         });
 
         sub.on('realTime').atFrequency(2).handle((_t) => {
-            const idle = this.idleN1 + 2;
-            const showIdle = this.engine1N1 <= idle && this.engine2N1 <= idle && this.fwcFlightPhase >= 5 && this.fwcFlightPhase <= 7 && this.autoThrustStatus !== 0;
+            const engine1Idle = this.ecu1ADiscrete3.bitValueOr(29, false) || this.ecu1BDiscrete3.bitValueOr(29, false);
+            const engine2Idle = this.ecu2ADiscrete3.bitValueOr(29, false) || this.ecu2BDiscrete3.bitValueOr(29, false);
+
+            const showIdle = engine1Idle && engine2Idle && this.fwcFlightPhase >= 5 && this.fwcFlightPhase <= 7 && this.autoThrustStatus !== 0;
 
             this.visibility.set(showIdle ? 'visible' : 'hidden');
 

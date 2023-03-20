@@ -15,6 +15,10 @@ export type EwdSimvars = {
     autoThrustWarningToga: boolean;
     packs1Supplying: boolean;
     packs2Supplying: boolean;
+    ecu1ADiscrete3: number;
+    ecu1BDiscrete3: number;
+    ecu2ADiscrete3: number;
+    ecu2BDiscrete3: number;
     engine1AntiIce: boolean;
     engine1EGT: number;
     engine1Fadec: boolean;
@@ -40,7 +44,6 @@ export type EwdSimvars = {
     throttle1Position: number;
     throttle2Position: number;
     fwcFlightPhase: number;
-    idleN1: number;
     flexTemp: number;
     satRaw: number;
     totalFuel: number;
@@ -78,6 +81,10 @@ export enum EwdVars {
     autoThrustWarningToga = 'L:A32NX_AUTOTHRUST_THRUST_LEVER_WARNING_TOGA',
     packs1Supplying = 'L:A32NX_COND_PACK_FLOW_VALVE_1_IS_OPEN',
     packs2Supplying = 'L:A32NX_COND_PACK_FLOW_VALVE_2_IS_OPEN',
+    ecu1ADiscrete3 = 'L:A32NX_ECU1A_DISCRETE_3',
+    ecu1BDiscrete3 = 'L:A32NX_ECU1B_DISCRETE_3',
+    ecu2ADiscrete3 = 'L:A32NX_ECU2A_DISCRETE_3',
+    ecu2BDiscrete3 = 'L:A32NX_ECU2B_DISCRETE_3',
     engine1AntiIce = 'L:XMLVAR_Momentary_PUSH_OVHD_ANTIICE_ENG1_Pressed',
     engine1EGT = 'L:A32NX_ENGINE_EGT:1',
     engine1Fadec = 'L:A32NX_FADEC_POWERED_ENG1',
@@ -103,7 +110,6 @@ export enum EwdVars {
     throttle1Position = 'L:XMLVAR_Throttle1Position',
     throttle2Position = 'L:XMLVAR_Throttle2Position',
     fwcFlightPhase = 'L:A32NX_FWC_FLIGHT_PHASE',
-    idleN1 = 'L:A32NX_ENGINE_IDLE_N1',
     flexTemp = 'L:AIRLINER_TO_FLEX_TEMP',
     satRaw = 'L:A32NX_ADIRS_ADR_1_STATIC_AIR_TEMPERATURE',
     totalFuel = 'FUEL TOTAL QUANTITY WEIGHT',
@@ -142,6 +148,10 @@ export class EwdSimvarPublisher extends SimVarPublisher<EwdSimvars> {
         ['autoThrustWarningToga', { name: EwdVars.autoThrustWarningToga, type: SimVarValueType.Bool }],
         ['packs1Supplying', { name: EwdVars.packs1Supplying, type: SimVarValueType.Bool }],
         ['packs2Supplying', { name: EwdVars.packs2Supplying, type: SimVarValueType.Bool }],
+        ['ecu1ADiscrete3', { name: EwdVars.ecu1ADiscrete3, type: SimVarValueType.Number }],
+        ['ecu1BDiscrete3', { name: EwdVars.ecu1BDiscrete3, type: SimVarValueType.Number }],
+        ['ecu2ADiscrete3', { name: EwdVars.ecu2ADiscrete3, type: SimVarValueType.Number }],
+        ['ecu2BDiscrete3', { name: EwdVars.ecu2BDiscrete3, type: SimVarValueType.Number }],
         ['engine1AntiIce', { name: EwdVars.engine1AntiIce, type: SimVarValueType.Bool }],
         ['engine1EGT', { name: EwdVars.engine1EGT, type: SimVarValueType.Number }],
         ['engine1Fadec', { name: EwdVars.engine1Fadec, type: SimVarValueType.Bool }],
@@ -167,7 +177,6 @@ export class EwdSimvarPublisher extends SimVarPublisher<EwdSimvars> {
         ['throttle1Position', { name: EwdVars.throttle1Position, type: SimVarValueType.Number }],
         ['throttle2Position', { name: EwdVars.throttle2Position, type: SimVarValueType.Number }],
         ['fwcFlightPhase', { name: EwdVars.fwcFlightPhase, type: SimVarValueType.Enum }],
-        ['idleN1', { name: EwdVars.idleN1, type: SimVarValueType.Number }],
         ['flexTemp', { name: EwdVars.flexTemp, type: SimVarValueType.Number }],
         ['satRaw', { name: EwdVars.satRaw, type: SimVarValueType.Number }],
         ['totalFuel', { name: EwdVars.totalFuel, type: SimVarValueType.Number }],

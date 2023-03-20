@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Arinc429.h"
 #include "RegPolynomials.h"
 #include "SimVars.h"
 #include "Tables.h"
@@ -85,6 +86,9 @@ class EngineControl {
   double imbalance;
   int engineImbalanced;
   double paramImbalance;
+
+  Arinc429DiscreteWord engine1Discrete3;
+  Arinc429DiscreteWord engine2Discrete3;
 
   const double LBS_TO_KGS = 0.4535934;
   const double KGS_TO_LBS = 1 / 0.4535934;
@@ -780,7 +784,7 @@ class EngineControl {
       }
     } else if (pumpStateLeft == 1 && timerLeft.elapsed() >= 2100) {
       simVars->setPumpStateLeft(0);
-      //fuelLeftPre = 0;
+      // fuelLeftPre = 0;
       timerLeft.reset();
     } else if (pumpStateLeft == 2 && timerLeft.elapsed() >= 2700) {
       simVars->setPumpStateLeft(0);
@@ -800,7 +804,7 @@ class EngineControl {
       }
     } else if (pumpStateRight == 1 && timerRight.elapsed() >= 2100) {
       simVars->setPumpStateRight(0);
-      //fuelRightPre = 0;
+      // fuelRightPre = 0;
       timerRight.reset();
     } else if (pumpStateRight == 2 && timerRight.elapsed() >= 2700) {
       simVars->setPumpStateRight(0);
@@ -814,11 +818,11 @@ class EngineControl {
     }
 
     if (simPaused || uiFuelTamper && devState == 0) {  // Detects whether the Sim is paused or the Fuel UI is being tampered with
-      simVars->setFuelLeftPre(fuelLeftPre);          // in LBS
-      simVars->setFuelRightPre(fuelRightPre);        // in LBS
-      simVars->setFuelAuxLeftPre(fuelAuxLeftPre);    // in LBS
-      simVars->setFuelAuxRightPre(fuelAuxRightPre);  // in LBS
-      simVars->setFuelCenterPre(fuelCenterPre);      // in LBS
+      simVars->setFuelLeftPre(fuelLeftPre);            // in LBS
+      simVars->setFuelRightPre(fuelRightPre);          // in LBS
+      simVars->setFuelAuxLeftPre(fuelAuxLeftPre);      // in LBS
+      simVars->setFuelAuxRightPre(fuelAuxRightPre);    // in LBS
+      simVars->setFuelCenterPre(fuelCenterPre);        // in LBS
 
       fuelLeft = (fuelLeftPre / fuelWeightGallon);          // USG
       fuelRight = (fuelRightPre / fuelWeightGallon);        // USG
@@ -832,11 +836,11 @@ class EngineControl {
       SimConnect_SetDataOnSimObject(hSimConnect, DataTypesID::FuelLeftAux, SIMCONNECT_OBJECT_ID_USER, 0, 0, sizeof(double), &fuelLeftAux);
       SimConnect_SetDataOnSimObject(hSimConnect, DataTypesID::FuelRightAux, SIMCONNECT_OBJECT_ID_USER, 0, 0, sizeof(double), &fuelRightAux);
     } else if (!uiFuelTamper && refuelStartedByUser == 1) {  // Detects refueling from the EFB
-      simVars->setFuelLeftPre(leftQuantity);          // in LBS
-      simVars->setFuelRightPre(rightQuantity);        // in LBS
-      simVars->setFuelAuxLeftPre(leftAuxQuantity);    // in LBS
-      simVars->setFuelAuxRightPre(rightAuxQuantity);  // in LBS
-      simVars->setFuelCenterPre(centerQuantity);      // in LBS
+      simVars->setFuelLeftPre(leftQuantity);                 // in LBS
+      simVars->setFuelRightPre(rightQuantity);               // in LBS
+      simVars->setFuelAuxLeftPre(leftAuxQuantity);           // in LBS
+      simVars->setFuelAuxRightPre(rightAuxQuantity);         // in LBS
+      simVars->setFuelCenterPre(centerQuantity);             // in LBS
     } else {
       if (uiFuelTamper == 1) {
         fuelLeftPre = leftQuantity;          // LBS
@@ -1063,6 +1067,32 @@ class EngineControl {
     simVars->setThrustLimitMct(mct);
   }
 
+  void updateDiscretes() {
+    // FIXME proper logic (pressure ratio maybe?)
+    const bool engine1IdlePower = simVars->getEngine1N1() <= (idleN1 + 2);
+    const bool engine2IdlePower = simVars->getEngine2N1() <= (idleN1 + 2);
+    engine1Discrete3.setBit(29, engine1IdlePower);
+    engine2Discrete3.setBit(29, engine2IdlePower);
+
+    // FIXME should be a function of temperature and bounded by minimum N2 rpm limit
+    // engine core speed (N2 RPM is not directly available yet..)
+    const double engine1CoreSpeed = simVars->getEngine1N2() * 16645 / 100;
+    const double engine2CoreSpeed = simVars->getEngine2N2() * 16645 / 100;
+    const bool engine1CoreAtOrAboveMinIdle = simVars->getEngine1N2() >= 10630;
+    const bool engine2CoreAtOrAboveMinIdle = simVars->getEngine2N2() >= 10630;
+    engine1Discrete3.setBit(18, engine1CoreAtOrAboveMinIdle);
+    engine2Discrete3.setBit(18, engine2CoreAtOrAboveMinIdle);
+
+    // FIXME ssm when ECU de-powered
+    engine1Discrete3.setSsm(Arinc429SignStatus.NormalOperation);
+    engine2Discrete3.setSsm(Arinc429SignStatus.NormalOperation);
+
+    simVars->setEcu1ADiscrete3(engine1Discrete3.toSimVar());
+    simVars->setEcu1BDiscrete3(engine1Discrete3.toSimVar());
+    simVars->setEcu2ADiscrete3(engine2Discrete3.toSimVar());
+    simVars->setEcu2BDiscrete3(engine2Discrete3.toSimVar());
+  }
+
  public:
   /// <summary>
   /// Initialize the FADEC and Fuel model
@@ -1252,6 +1282,8 @@ class EngineControl {
 
     updateThrustLimits(simulationTime, pressAltitude, ambientTemp, ambientPressure, mach, simN1highest, packs, nai, wai);
     // timer.elapsed();
+
+    updateDiscretes();
   }
 
   void terminate() {}

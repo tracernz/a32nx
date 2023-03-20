@@ -31,7 +31,7 @@ class A32NX_EWD extends BaseInstrument {
         this.simVarPublisher = new EwdSimvarPublisher(this.bus);
         this.arincProvider = new ArincValueProvider(this.bus);
         this.clock = new Clock(this.bus);
-        this.pseudoFwc = new PseudoFWC();
+        this.pseudoFwc = new PseudoFWC(this.bus);
     }
 
     get templateID(): string {
@@ -68,6 +68,11 @@ class A32NX_EWD extends BaseInstrument {
         this.simVarPublisher.subscribe('apuBleedPressure');
         this.simVarPublisher.subscribe('packs1Supplying');
         this.simVarPublisher.subscribe('packs2Supplying');
+
+        this.simVarPublisher.subscribe('ecu1ADiscrete3');
+        this.simVarPublisher.subscribe('ecu1BDiscrete3');
+        this.simVarPublisher.subscribe('ecu2ADiscrete3');
+        this.simVarPublisher.subscribe('ecu2BDiscrete3');
 
         this.simVarPublisher.subscribe('engine1AntiIce');
         this.simVarPublisher.subscribe('engine1EGT');
@@ -106,7 +111,6 @@ class A32NX_EWD extends BaseInstrument {
 
         this.simVarPublisher.subscribe('flexTemp');
         this.simVarPublisher.subscribe('fwcFlightPhase');
-        this.simVarPublisher.subscribe('idleN1');
         this.simVarPublisher.subscribe('left1LandingGear');
         this.simVarPublisher.subscribe('right1LandingGear');
         this.simVarPublisher.subscribe('totalFuel');
