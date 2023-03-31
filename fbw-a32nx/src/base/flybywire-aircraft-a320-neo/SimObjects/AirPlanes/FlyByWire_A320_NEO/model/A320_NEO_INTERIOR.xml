@@ -4875,8 +4875,7 @@
                 <WWISE_EVENT_1>SETon</WWISE_EVENT_1>
                 <WWISE_EVENT_2>SEToff</WWISE_EVENT_2>
                 <TOOLTIPID>Toggle clock date/time</TOOLTIPID>
-                <LEFT_SINGLE_CODE>(&gt;H:A32NX_CHRONO_DATE)</LEFT_SINGLE_CODE>
-                <LEFT_LEAVE_CODE>(&gt;H:A32NX_CHRONO_DATE)</LEFT_LEAVE_CODE>
+                <HOLD_SIMVAR>L:A32NX_CHRONO_DATE_PUSHBUTTON</HOLD_SIMVAR>
             </UseTemplate>
 
             <UseTemplate Name="ASOBO_GT_Interaction_Tooltip">
