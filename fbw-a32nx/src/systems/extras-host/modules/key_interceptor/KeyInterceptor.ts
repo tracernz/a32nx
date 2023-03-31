@@ -1,7 +1,7 @@
 // Copyright (c) 2022 FlyByWire Simulations
 // SPDX-License-Identifier: GPL-3.0
 
-import { EventBus, KeyEvents, KeyInterceptManager } from 'msfssdk';
+import { EventBus, KeyEvents, KeyEventManager } from '@microsoft/msfs-sdk';
 import { NotificationManager } from '@shared/notification';
 import { PopUpDialog } from '@shared/popup';
 import { AircraftPresetsList } from '../common/AircraftPresetsList';
@@ -14,7 +14,7 @@ import { AircraftPresetsList } from '../common/AircraftPresetsList';
 export class KeyInterceptor {
     private eventBus: EventBus;
 
-    private keyInterceptManager: KeyInterceptManager;
+    private keyEventManager: KeyEventManager;
 
     private notification: NotificationManager;
 
@@ -22,8 +22,8 @@ export class KeyInterceptor {
 
     constructor(private readonly bus: EventBus) {
         this.eventBus = bus;
-        KeyInterceptManager.getManager(this.eventBus).then((manager) => {
-            this.keyInterceptManager = manager;
+        KeyEventManager.getManager(this.eventBus).then((manager) => {
+            this.keyEventManager = manager;
             this.registerIntercepts();
         });
         this.notification = new NotificationManager();
@@ -43,8 +43,8 @@ export class KeyInterceptor {
     }
 
     private registerIntercepts() {
-        this.keyInterceptManager.interceptKey('ENGINE_AUTO_START', false);
-        this.keyInterceptManager.interceptKey('ENGINE_AUTO_SHUTDOWN', false);
+        this.keyEventManager.interceptKey('ENGINE_AUTO_START', false);
+        this.keyEventManager.interceptKey('ENGINE_AUTO_SHUTDOWN', false);
 
         const subscriber = this.eventBus.getSubscriber<KeyEvents>();
         subscriber.on('key_intercept').handle((keyData) => {
@@ -75,8 +75,8 @@ export class KeyInterceptor {
                 'Ctrl+E Not supported',
                 `<div style="font-size: 120%; text-align: left;">
                            Engine Auto Start is not supported by the A32NX.<br/>
-                           <br/>                        
-                           Do you want to you use the flyPad's Aircraft Presets to set the aircraft to 
+                           <br/>
+                           Do you want to you use the flyPad's Aircraft Presets to set the aircraft to
                            <strong>"${AircraftPresetsList.getPresetName(presetID)}"</strong>?
                          </div>`,
                 'small',
