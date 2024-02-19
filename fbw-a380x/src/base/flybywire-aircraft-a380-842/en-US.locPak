@@ -20,13 +20,11 @@
       "COCKPIT.TOOLTIPS.AUTOPILOT_PANEL_HDG_TUNING_LEFT": "Adjust selected heading to the left (%((A:AUTOPILOT HEADING LOCK DIR:1,degrees))%!d!°)",
       "COCKPIT.TOOLTIPS.AUTOPILOT_PANEL_HDG_TUNING_RIGHT": "Adjust selected heading to the right  (%((A:AUTOPILOT HEADING LOCK DIR:1,degrees))%!d!°)",
 
-      "COCKPIT.TOOLTIPS.BATTERY_VOLTAGE_INDICATOR_KNOB": "Battery Voltage Indicator Selector Knob",
-      "COCKPIT.TOOLTIPS.BATTERY_VOLTAGE_INDICATOR_KNOB_ESS": "Shows the voltage of the ESS battery",
-      "COCKPIT.TOOLTIPS.BATTERY_VOLTAGE_INDICATOR_KNOB_APU": "Shows the voltage of the APU battery",
-      "COCKPIT.TOOLTIPS.BATTERY_VOLTAGE_INDICATOR_KNOB_OFF":  "Shows no valid voltage (00.0V)",
-      "COCKPIT.TOOLTIPS.BATTERY_VOLTAGE_INDICATOR_KNOB_BAT1": "Shows the voltage of battery 1",
-      "COCKPIT.TOOLTIPS.BATTERY_VOLTAGE_INDICATOR_KNOB_BAT2": "Shows the voltage of battery 2"
+      "A380X.TOOLTIPS.STATE_ESS": "ESS",
+      "A380X.TOOLTIPS.STATE_APU": "APU",
 
+      "A380X.TOOLTIPS.BAT_SELECTOR_TITLE": "Battery Voltage Selector",
+      "A380X.TOOLTIPS.BAT_SELECTOR_ACTION":  "Select the battery voltage to display"
     }
   }
 }

@@ -93,9 +93,9 @@
     - Bool
     - True when the AC ESS FEED push button is NORMAL
 
-- A380X_OVHD_BAT_DISPLAY_SELECTOR_KNOB
+- A380X_OVHD_ELEC_BAT_SELECTOR_KNOB
     - Number
-    - The position of the battery display knob from left to right 
+    - The position of the battery display knob from left to right
     - ESS=0, APU=1, OFF=2, BAT1=3, BAT2=4
     - Mapped to battery voltage indexes: {bat_index} = ESS=4 | APU=3 | OFF=0 | BAT1=1 | BAT2=2
         - A32NX_ELEC_BAT_{bat_index}_POTENTIAL is used to get the voltage
