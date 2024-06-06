@@ -221,7 +221,8 @@ class CDUAvailableArrivalsPage {
             let viasPageLabel = "";
             let viasPageLine = "";
             if (starSelection) {
-                if (selectedApproach) {
+                // APPR VIAS is only shown if there are transitions available
+                if (selectedApproach && selectedApproach.transitions.length > 0) {
                     viasPageLabel = "{sp}APPR";
                     viasPageLine = "<VIAS";
                     mcdu.onLeftInput[1] = () => {
