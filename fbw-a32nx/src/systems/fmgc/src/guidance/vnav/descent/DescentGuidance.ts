@@ -172,8 +172,10 @@ export class DescentGuidance {
       return;
     }
 
+    const verticalMode = this.observer.get().fcuVerticalMode;
+
     if (
-      (this.observer.get().fcuVerticalMode === VerticalMode.DES) !==
+      (verticalMode === VerticalMode.DES || verticalMode === VerticalMode.FINAL) !==
       (this.verticalState === DescentVerticalGuidanceState.ProvidingGuidance)
     ) {
       this.changeState(

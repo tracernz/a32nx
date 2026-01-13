@@ -29,6 +29,10 @@ export class AircraftToDescentProfileRelation {
     return this.totalFlightPlanDistance - this.distanceToEnd;
   }
 
+  get currentDistanceToEnd(): NauticalMiles {
+    return this.distanceToEnd;
+  }
+
   constructor(private observer: VerticalProfileComputationParametersObserver) {}
 
   reset() {
@@ -135,9 +139,5 @@ export class AircraftToDescentProfileRelation {
     const { destinationElevation, presentPosition } = this.observer.get();
 
     return presentPosition.alt < destinationElevation + 5000;
-  }
-
-  get currentDistanceToEnd(): NauticalMiles {
-    return this.distanceToEnd;
   }
 }
