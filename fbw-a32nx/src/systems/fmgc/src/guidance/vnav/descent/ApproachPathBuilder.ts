@@ -206,14 +206,14 @@ export class ApproachPathBuilder {
       ProfilePhase.Descent,
     );
 
-    // Build path to FAF by flying the descent angle but decelerating
-    const fafStep = this.buildDecelerationPath(
+    // Build path to FDP by flying the descent angle but decelerating
+    const fdpStep = this.buildDecelerationPath(
       profile,
       sequence.lastCheckpoint,
       speedProfile,
-      profile.getDistanceFromStart(profile.fafDistanceToEnd),
+      profile.getDistanceFromStart(profile.fdpDistanceToEnd),
     );
-    sequence.push(...fafStep.get());
+    sequence.push(...fdpStep.get());
 
     //
     this.fpaStrategy.flightPathAngle = 0;
