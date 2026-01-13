@@ -111,7 +111,7 @@ export class VerticalProfileManager {
   // PROFILE COMPUTATIONS
 
   computeTacticalMcduPath(): void {
-    const { flightPhase, presentPosition, fuelOnBoard, approachSpeed, cruiseAltitude } = this.observer.get();
+    const { flightPhase, altitude, fuelOnBoard, approachSpeed, cruiseAltitude } = this.observer.get();
 
     const managedClimbStrategy = new ClimbThrustClimbStrategy(this.observer, this.atmosphericConditions, this.acConfig);
     const stepDescentStrategy = new VerticalSpeedStrategy(
@@ -140,7 +140,7 @@ export class VerticalProfileManager {
       this.takeoffPathBuilder.buildTakeoffPath(mcduProfile, this.acConfig);
     } else {
       mcduProfile.addPresentPositionCheckpoint(
-        presentPosition,
+        altitude,
         fuelOnBoard,
         this.getManagedMachTarget(),
         this.getVman(approachSpeed),
@@ -228,7 +228,7 @@ export class VerticalProfileManager {
 
   computeVerticalProfileForExpediteClimb(): void {
     try {
-      const { approachSpeed, fcuAltitude, presentPosition, fuelOnBoard, managedClimbSpeedMach, flightPhase } =
+      const { approachSpeed, fcuAltitude, altitude, fuelOnBoard, managedClimbSpeedMach, flightPhase } =
         this.observer.get();
 
       // TODO: I wonder where GD speed comes from IRL. Should probably be an FMGC computation rather than FAC since it's just for predictions
@@ -242,7 +242,7 @@ export class VerticalProfileManager {
       const climbStrategy = new ClimbThrustClimbStrategy(this.observer, this.atmosphericConditions, this.acConfig);
 
       this.expediteProfile.addPresentPositionCheckpoint(
-        presentPosition,
+        altitude,
         fuelOnBoard,
         managedClimbSpeedMach,
         this.getVman(approachSpeed),
@@ -267,7 +267,7 @@ export class VerticalProfileManager {
    * Build a path from the present position to the FCU altitude
    */
   computeTacticalNdProfile(): void {
-    const { fcuAltitude, cleanSpeed, presentPosition, fuelOnBoard, approachSpeed, flightPhase } = this.observer.get();
+    const { fcuAltitude, cleanSpeed, altitude, fuelOnBoard, approachSpeed, flightPhase } = this.observer.get();
 
     const ndProfile = this.fcuModes.isLatAutoControlActive()
       ? new NavGeometryProfile(
@@ -305,7 +305,7 @@ export class VerticalProfileManager {
     // TODO: Handle Takeoff and Go arounds
 
     ndProfile.addPresentPositionCheckpoint(
-      presentPosition,
+      altitude,
       fuelOnBoard,
       this.getManagedMachTarget(),
       this.getVman(approachSpeed),
@@ -343,7 +343,7 @@ export class VerticalProfileManager {
    * Computes an intercept point between the profile that's predicted in the currently active modes and the precomputed descent profile.
    */
   private interceptNdWithGuidanceProfile(ndProfile: BaseGeometryProfile): void {
-    const { flightPhase, fcuVerticalMode, fcuArmedVerticalMode, presentPosition, fcuAltitude } = this.observer.get();
+    const { flightPhase, fcuVerticalMode, fcuArmedVerticalMode, altitude, fcuAltitude } = this.observer.get();
     if (
       !this.fcuModes.isLatAutoControlActive() ||
       !this.descentProfile ||
@@ -370,7 +370,7 @@ export class VerticalProfileManager {
         : VerticalCheckpointReason.InterceptDescentProfileSelected;
       const interceptCheckpoint = ndProfile.addInterpolatedCheckpoint(interceptDistance, { reason: interceptReason });
 
-      const isAircraftTooCloseToIntercept = Math.abs(presentPosition.alt - interceptCheckpoint.altitude) < 100;
+      const isAircraftTooCloseToIntercept = Math.abs(altitude - interceptCheckpoint.altitude) < 100;
       if (isAircraftTooCloseToIntercept) {
         // If we're close to the intercept, we don't want to draw the intercept point, so use a reason that does not create a PWP
         interceptCheckpoint.reason = VerticalCheckpointReason.AtmosphericConditions;
@@ -430,7 +430,7 @@ export class VerticalProfileManager {
    * Find level segments in ND profile and add magenta arrows to them.
    */
   private insertLevelSegmentPwp(ndProfile: BaseGeometryProfile): void {
-    const { flightPhase, fcuArmedVerticalMode, presentPosition } = this.observer.get();
+    const { flightPhase, fcuArmedVerticalMode, altitude } = this.observer.get();
     if (
       !this.fcuModes.isLatAutoControlActive() ||
       !this.descentProfile ||
@@ -440,7 +440,7 @@ export class VerticalProfileManager {
       return;
     }
 
-    const currentAlt = presentPosition.alt;
+    const currentAlt = altitude;
     const isDescentArmed =
       isArmed(fcuArmedVerticalMode, ArmedVerticalMode.DES) || isArmed(fcuArmedVerticalMode, ArmedVerticalMode.FINAL);
     const isInLevelFlight = this.fcuModes.isInLevelFlightMode();
@@ -782,7 +782,7 @@ class FcuModeObserver {
     VerticalMode.SRS_GA,
   ];
 
-  private VERT_DESCENT_MODES: VerticalMode[] = [VerticalMode.DES, VerticalMode.OP_DES];
+  private VERT_DESCENT_MODES: VerticalMode[] = [VerticalMode.DES, VerticalMode.OP_DES, VerticalMode.FINAL];
 
   private VERT_LEVEL_MODES: VerticalMode[] = [
     VerticalMode.ALT,

@@ -510,7 +510,7 @@ export abstract class BaseGeometryProfile {
   }
 
   addPresentPositionCheckpoint(
-    presentPosition: LatLongAlt,
+    currentAlt: number,
     remainingFuelOnBoard: number,
     mach: Mach,
     vman: Knots,
@@ -520,7 +520,7 @@ export abstract class BaseGeometryProfile {
       reason: VerticalCheckpointReason.PresentPosition,
       distanceFromStart: this.distanceToPresentPosition,
       secondsFromPresent: 0,
-      altitude: presentPosition.alt,
+      altitude: currentAlt,
       remainingFuelOnBoard,
       speed: VnavConfig.ALLOW_DEBUG_PARAMETER_INJECTION
         ? SimVar.GetSimVarValue('L:A32NX_FM_VNAV_DEBUG_SPEED', 'knots')

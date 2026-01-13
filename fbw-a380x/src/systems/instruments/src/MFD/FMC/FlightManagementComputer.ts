@@ -312,6 +312,7 @@ export class FlightManagementComputer implements FmcInterface {
       this.efisInterfaces,
       a380EfisRangeSettings,
       A380AircraftConfig,
+      this.navigation,
     );
     this.efisSymbolsLeft = new EfisSymbols(
       this.bus,

@@ -273,7 +273,7 @@ export class VnavDriver implements GuidanceComponent {
       flightPhase,
       managedDescentSpeed,
       managedDescentSpeedMach,
-      presentPosition,
+      altitude,
       approachSpeed,
       fcuExpediteModeActive,
     } = this.computationParametersObserver.get();
@@ -281,7 +281,7 @@ export class VnavDriver implements GuidanceComponent {
     const currentDistanceFromStart = this.isLatAutoControlActive()
       ? this.constraintReader.distanceToPresentPosition
       : 0;
-    const currentAltitude = presentPosition.alt;
+    const currentAltitude = altitude;
 
     // Speed guidance for holds is handled elsewhere for now, so we don't want to interfere here
     if (flightPhase !== FmgcFlightPhase.Descent || fcuExpediteModeActive || isHoldActive) {
@@ -331,7 +331,7 @@ export class VnavDriver implements GuidanceComponent {
 
     const vLs = SimVar.GetSimVarValue('L:A32NX_SPEEDS_VLS', 'number');
     const vMan = this.getVman(approachSpeed);
-    const econMachAsCas = this.atmosphericConditions.computeCasFromMach(presentPosition.alt, managedDescentSpeedMach);
+    const econMachAsCas = this.atmosphericConditions.computeCasFromMach(altitude, managedDescentSpeedMach);
     SimVar.SetSimVarValue(
       'L:A32NX_SPEEDS_MANAGED_PFD',
       'knots',
@@ -472,7 +472,7 @@ export class VnavDriver implements GuidanceComponent {
   }
 
   public findNextSpeedChange(): NauticalMiles | null {
-    const { presentPosition, flightPhase, fcuAltitude, fcuSpeedManaged, fcuExpediteModeActive } =
+    const { altitude, flightPhase, fcuAltitude, fcuSpeedManaged, fcuExpediteModeActive } =
       this.computationParametersObserver.get();
 
     if (!this.ndProfile || !fcuSpeedManaged || fcuExpediteModeActive || flightPhase === FmgcFlightPhase.Approach) {
@@ -492,7 +492,7 @@ export class VnavDriver implements GuidanceComponent {
     // We don't want to show the speed change dot at acceleration altiude, so we have to make sure the speed target is econ speed, not SRS speed.
     const speedTarget =
       flightPhase < FmgcFlightPhase.Climb
-        ? this.currentMcduSpeedProfile.getTarget(distanceToPresentPosition, presentPosition.alt, ManagedSpeedType.Climb)
+        ? this.currentMcduSpeedProfile.getTarget(distanceToPresentPosition, altitude, ManagedSpeedType.Climb)
         : SimVar.GetSimVarValue('L:A32NX_SPEEDS_MANAGED_PFD', 'knots');
 
     for (let i = 1; i < this.profileManager.ndProfile.checkpoints.length - 1; i++) {

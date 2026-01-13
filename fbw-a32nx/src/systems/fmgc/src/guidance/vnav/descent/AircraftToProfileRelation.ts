@@ -108,7 +108,7 @@ export class AircraftToDescentProfileRelation {
   }
 
   computeLinearDeviation(): Feet {
-    const altitude = this.observer.get().presentPosition.alt;
+    const altitude = this.observer.get().altitude;
     const targetAltitude = this.currentTargetAltitude();
 
     return altitude - targetAltitude;
@@ -130,14 +130,14 @@ export class AircraftToDescentProfileRelation {
   }
 
   isAboveSpeedLimitAltitude(): boolean {
-    const { presentPosition, descentSpeedLimit } = this.observer.get();
+    const { altitude, descentSpeedLimit } = this.observer.get();
 
-    return presentPosition.alt > descentSpeedLimit?.underAltitude;
+    return altitude > descentSpeedLimit?.underAltitude;
   }
 
   isCloseToAirfieldElevation(): boolean {
-    const { destinationElevation, presentPosition } = this.observer.get();
+    const { altitude, destinationElevation } = this.observer.get();
 
-    return presentPosition.alt < destinationElevation + 5000;
+    return altitude < destinationElevation + 5000;
   }
 }
