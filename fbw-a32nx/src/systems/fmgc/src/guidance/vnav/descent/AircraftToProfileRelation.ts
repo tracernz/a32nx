@@ -1,5 +1,5 @@
 // @ts-strict-ignore
-// Copyright (c) 2021-2023 FlyByWire Simulations
+// Copyright (c) 2021-2026 FlyByWire Simulations
 //
 // SPDX-License-Identifier: GPL-3.0
 
@@ -112,6 +112,96 @@ export class AircraftToDescentProfileRelation {
     const targetAltitude = this.currentTargetAltitude();
 
     return altitude - targetAltitude;
+  }
+
+  /**
+   * Computes deviation from the next descending profile segment, extrapolating that segment back to the aircraft.
+   * This is used to display V/DEV while FINAL is armed without treating an intervening level segment as capturable.
+   */
+  computeLinearDeviationToNextDescent(): Feet | null {
+    const altitude = this.observer.get().altitude;
+    const checkpoints = this.currentProfile?.checkpoints;
+    if (altitude === null || !checkpoints) {
+      return null;
+    }
+
+    for (let i = 0; i < checkpoints.length - 1; i++) {
+      const start = checkpoints[i];
+      const end = checkpoints[i + 1];
+      const distance = end.distanceFromStart - start.distanceFromStart;
+
+      if (end.distanceFromStart < this.distanceFromStart || distance <= 0 || end.altitude >= start.altitude) {
+        continue;
+      }
+
+      const targetAltitude = MathUtils.lerp(
+        this.distanceFromStart,
+        start.distanceFromStart,
+        end.distanceFromStart,
+        start.altitude,
+        end.altitude,
+        false,
+        false,
+      );
+
+      return altitude - targetAltitude;
+    }
+
+    return null;
+  }
+
+  /**
+   * Gets guidance to the next descending segment at or after the IAF, extrapolated back to the aircraft.
+   * @param maximumDistanceToStart Maximum along-track distance to the start of the segment.
+   */
+  getNextDescentSegmentGuidanceAtOrAfterIaf(
+    maximumDistanceToStart: NauticalMiles,
+  ): { vdev: Feet; pathAngle: Degrees; segmentStartDistanceFromStart: NauticalMiles } | null {
+    const altitude = this.observer.get().altitude;
+    const profile = this.currentProfile;
+    if (altitude === null || !profile) {
+      return null;
+    }
+
+    const iafDistanceFromStart = profile.totalFlightPlanDistance - profile.iafDistanceToEnd;
+    for (let i = 0; i < profile.checkpoints.length - 1; i++) {
+      const start = profile.checkpoints[i];
+      const end = profile.checkpoints[i + 1];
+      const distance = end.distanceFromStart - start.distanceFromStart;
+
+      if (
+        end.distanceFromStart < this.distanceFromStart ||
+        end.distanceFromStart < iafDistanceFromStart ||
+        distance <= 0 ||
+        end.altitude >= start.altitude
+      ) {
+        continue;
+      }
+
+      if (start.distanceFromStart - this.distanceFromStart > maximumDistanceToStart) {
+        return null;
+      }
+
+      const targetAltitude = MathUtils.lerp(
+        this.distanceFromStart,
+        start.distanceFromStart,
+        end.distanceFromStart,
+        start.altitude,
+        end.altitude,
+        false,
+        false,
+      );
+      const pathAngle =
+        MathUtils.RADIANS_TO_DEGREES * Math.atan((end.altitude - start.altitude) / distance / 6076.12);
+
+      return {
+        vdev: altitude - targetAltitude,
+        pathAngle,
+        segmentStartDistanceFromStart: start.distanceFromStart,
+      };
+    }
+
+    return null;
   }
 
   currentTargetAltitude(): Feet {

@@ -1,5 +1,5 @@
 // @ts-strict-ignore
-// Copyright (c) 2021-2023 FlyByWire Simulations
+// Copyright (c) 2021-2026 FlyByWire Simulations
 //
 // SPDX-License-Identifier: GPL-3.0
 
@@ -79,6 +79,7 @@ export class ConstraintReader {
 
     const plan = this.flightPlanService.active;
     let platformAltitude: number | undefined = undefined;
+    let computedFdpDistanceToEnd: number | undefined;
 
     for (let i = 0; i < plan.firstMissedApproachLegIndex; i++) {
       const leg = plan.elementAt(i);
@@ -164,16 +165,23 @@ export class ConstraintReader {
         this.finalDescentAngle = leg.definition.verticalAngle;
 
         if (platformAltitude !== undefined) {
-          this.fdpDistanceToEnd =
+          const fdpDistanceToEnd =
             (this.finalAltitude - platformAltitude) /
             MathUtils.FEET_TO_NAUTICAL_MILES /
             Math.tan(this.finalDescentAngle * MathUtils.DEGREES_TO_RADIANS);
+
+          if (Number.isFinite(fdpDistanceToEnd) && fdpDistanceToEnd > 0) {
+            computedFdpDistanceToEnd = fdpDistanceToEnd;
+          }
         }
       }
 
       const nextElement = plan.maybeElementAt(i + 1);
       if (platformAltitude === undefined && isLeg(nextElement) && nextElement.definition.verticalAngle !== undefined) {
-        platformAltitude = ConstraintUtils.minimumAltitude(leg.altitudeConstraint);
+        const minimumAltitude = ConstraintUtils.minimumAltitude(leg.altitudeConstraint);
+        if (Number.isFinite(minimumAltitude)) {
+          platformAltitude = minimumAltitude;
+        }
       }
 
       if (leg.definition.approachWaypointDescriptor === ApproachWaypointDescriptor.FinalApproachFix) {
@@ -181,6 +189,7 @@ export class ConstraintReader {
       }
     }
 
+    this.fdpDistanceToEnd = computedFdpDistanceToEnd ?? this.fafDistanceToEnd;
     this.updateIafDistance();
   }
 

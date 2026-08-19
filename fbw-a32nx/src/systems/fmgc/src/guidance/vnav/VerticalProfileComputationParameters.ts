@@ -1,5 +1,5 @@
 // @ts-strict-ignore
-// Copyright (c) 2021-2024 FlyByWire Simulations
+// Copyright (c) 2021-2026 FlyByWire Simulations
 //
 // SPDX-License-Identifier: GPL-3.0
 
@@ -58,12 +58,26 @@ export interface VerticalProfileComputationParameters {
   takeoffFlapsSetting?: FlapConf;
   estimatedDestinationFuel: Pounds | null;
 
+  /** Baro minimum for the approach in feet, or null if not entered. */
+  approachBaroMinimum: number | null;
   approachQnh: Millibar;
   approachTemperature: Celsius;
   approachSpeed: Knots;
+  /**
+   * F speed in knots based on estimated landing weight, or 0 if not available
+   */
   flapRetractionSpeed: Knots;
+  /**
+   * S speed in knots based on estimated landing weight, or 0 if not available
+   */
   slatRetractionSpeed: Knots;
+  /**
+   * Green dot speed in knots based on esimated landing weight, or 0 if not available
+   */
   cleanSpeed: Knots;
+
+  /** Whether FINAL APP is selected for the active plan approach. undefined if not FINAL mode (A380). */
+  isFinalAppSelected?: boolean;
 }
 
 export class VerticalProfileComputationParametersObserver {
@@ -145,21 +159,16 @@ export class VerticalProfileComputationParametersObserver {
       takeoffFlapsSetting: this.fmgc.getTakeoffFlapsSetting() ?? DefaultVerticalProfileParameters.flapsSetting,
       estimatedDestinationFuel: efobTonnes !== null ? UnitType.TONNE.convertTo(efobTonnes, UnitType.POUND) : null,
 
+      approachBaroMinimum: this.flightPlanService.active.performanceData.approachBaroMinimum.get(),
       approachQnh: this.fmgc.getApproachQnh(),
       approachTemperature: this.fmgc.getApproachTemperature(),
       approachSpeed: this.fmgc.getApproachSpeed(),
-      /**
-       * F speed in knots based on estimated landing weight, or 0 if not available
-       */
+
       flapRetractionSpeed: this.fmgc.getFlapRetractionSpeed(),
-      /**
-       * S speed in knots based on estimated landing weight, or 0 if not available
-       */
       slatRetractionSpeed: this.fmgc.getSlatRetractionSpeed(),
-      /**
-       * Green dot speed in knots based on esimated landing weight, or 0 if not available
-       */
       cleanSpeed: this.fmgc.getCleanSpeed(),
+
+      isFinalAppSelected: this.fmgc.isFinalAppSelected(),
     };
 
     if (VnavConfig.ALLOW_DEBUG_PARAMETER_INJECTION) {

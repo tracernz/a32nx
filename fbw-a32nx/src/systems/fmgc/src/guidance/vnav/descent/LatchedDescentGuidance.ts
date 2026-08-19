@@ -1,6 +1,4 @@
-// @ts-strict-ignore
-// Copyright (c) 2021-2024 FlyByWire Simulations
-//
+// Copyright (c) 2021-2026 FlyByWire Simulations
 // SPDX-License-Identifier: GPL-3.0
 
 import { RequestedVerticalMode, TargetAltitude, TargetVerticalSpeed } from '@fmgc/guidance/ControlLaws';
@@ -15,12 +13,7 @@ import { EventBus } from '@microsoft/msfs-sdk';
 import { TodGuidance } from './TodGuidance';
 import { SpeedMargin } from './SpeedMargin';
 import { AircraftConfig } from '../../../flightplanning/AircraftConfigTypes';
-
-enum DescentVerticalGuidanceState {
-  InvalidProfile,
-  ProvidingGuidance,
-  Observing,
-}
+import { DescentVerticalGuidanceState, VerticalGuidanceParameters } from '../VerticalGuidanceParameters';
 
 enum DescentSpeedGuidanceState {
   NotInDescentPhase,
@@ -39,7 +32,7 @@ export class LatchedDescentGuidance {
 
   private targetAltitudeGuidance: TargetAltitude = 0;
 
-  private targetVerticalSpeed: TargetVerticalSpeed = 0;
+  protected targetVerticalSpeed: TargetVerticalSpeed = 0;
 
   private showLinearDeviationOnPfd: boolean = false;
 
@@ -49,7 +42,7 @@ export class LatchedDescentGuidance {
 
   private todGuidance: TodGuidance;
 
-  private speedTarget: Knots | Mach;
+  private speedTarget: Knots | Mach = 0;
 
   // An "overspeed condition" just means we are above the speed margins, not that we are in the red band.
   // We use a boolean here for hysteresis
@@ -57,11 +50,11 @@ export class LatchedDescentGuidance {
 
   constructor(
     config: AircraftConfig,
-    bus: EventBus,
-    private guidanceController: GuidanceController,
-    private aircraftToDescentProfileRelation: AircraftToDescentProfileRelation,
-    private observer: VerticalProfileComputationParametersObserver,
-    private atmosphericConditions: AtmosphericConditions,
+    protected readonly bus: EventBus,
+    private readonly guidanceController: GuidanceController,
+    protected readonly aircraftToDescentProfileRelation: AircraftToDescentProfileRelation,
+    protected readonly observer: VerticalProfileComputationParametersObserver,
+    protected readonly atmosphericConditions: AtmosphericConditions,
   ) {
     this.speedMargin = new SpeedMargin(config, this.observer);
     this.todGuidance = new TodGuidance(
@@ -70,8 +63,10 @@ export class LatchedDescentGuidance {
       this.observer,
       this.atmosphericConditions,
     );
+  }
 
-    this.writeToSimVars();
+  public getState(): DescentVerticalGuidanceState {
+    return this.verticalState;
   }
 
   updateProfile(profile: NavGeometryProfile) {
@@ -92,13 +87,13 @@ export class LatchedDescentGuidance {
       newState === DescentVerticalGuidanceState.InvalidProfile
     ) {
       this.reset();
-      this.writeToSimVars();
     }
 
     this.verticalState = newState;
   }
 
-  reset() {
+  /** Resets the current guidance state. */
+  public reset() {
     this.requestedVerticalMode = RequestedVerticalMode.None;
     this.targetAltitude = 0;
     this.targetVerticalSpeed = 0;
@@ -107,7 +102,12 @@ export class LatchedDescentGuidance {
     this.isInOverspeedCondition = false;
   }
 
-  update(deltaTime: number, distanceToEnd: NauticalMiles) {
+  /**
+   * Updates the guidance.
+   * @param deltaTime The time since the last update in ms.
+   * @param distanceToEnd The distance to the end of the descent profile in nautical miles.
+   */
+  public update(deltaTime: number, distanceToEnd: number): void {
     this.aircraftToDescentProfileRelation.update(distanceToEnd);
 
     if (!this.aircraftToDescentProfileRelation.isValid) {
@@ -136,7 +136,6 @@ export class LatchedDescentGuidance {
       this.updateDesModeGuidance();
     }
 
-    this.writeToSimVars();
     this.todGuidance.update(deltaTime);
   }
 
@@ -190,14 +189,16 @@ export class LatchedDescentGuidance {
       : fcuSpeed;
   }
 
-  private writeToSimVars() {
-    SimVar.SetSimVarValue('L:A32NX_FG_REQUESTED_VERTICAL_MODE', 'Enum', this.requestedVerticalMode);
-    SimVar.SetSimVarValue('L:A32NX_FG_TARGET_ALTITUDE', 'Feet', this.targetAltitudeGuidance);
-    SimVar.SetSimVarValue('L:A32NX_FG_TARGET_VERTICAL_SPEED', 'number', this.targetVerticalSpeed);
+  public getGuidanceParameters(out: VerticalGuidanceParameters): boolean {
+    if (this.verticalState === DescentVerticalGuidanceState.InvalidProfile) {
+      return false;
+    }
 
-    SimVar.SetSimVarValue('L:A32NX_PFD_TARGET_ALTITUDE', 'Feet', this.targetAltitude);
-    SimVar.SetSimVarValue('L:A32NX_PFD_LINEAR_DEVIATION_ACTIVE', 'Bool', this.showLinearDeviationOnPfd);
-    SimVar.SetSimVarValue('L:A32NX_PFD_VERTICAL_PROFILE_LATCHED', 'Bool', this.showDescentLatchOnPfd);
+    out.requestedVerticalMode = this.requestedVerticalMode;
+    out.targetPressureAltitude = this.targetAltitudeGuidance;
+    out.targetVerticalSpeed = this.targetVerticalSpeed;
+
+    return true;
   }
 
   private updateSpeedGuidance() {
@@ -294,11 +295,23 @@ export class LatchedDescentGuidance {
     return this.targetVerticalSpeed;
   }
 
-  public getLinearDeviation(): Feet {
+  public getLinearDeviation(): Feet | undefined {
     if (!this.aircraftToDescentProfileRelation.isValid) {
       return undefined;
     }
 
     return this.aircraftToDescentProfileRelation.computeLinearDeviation();
+  }
+
+  public isLinearDeviationActive(): boolean {
+    return this.showLinearDeviationOnPfd;
+  }
+
+  public isLinearDeviationLatched(): boolean {
+    return this.showDescentLatchOnPfd;
+  }
+
+  public getPfdTargetAltitude(): number {
+    return this.targetAltitude;
   }
 }

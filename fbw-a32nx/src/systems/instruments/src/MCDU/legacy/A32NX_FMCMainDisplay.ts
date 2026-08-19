@@ -6,6 +6,7 @@ import {
   A320EfisNdRangeValue,
   a320EfisRangeSettings,
   Airport,
+  ApproachType,
   Arinc429Register,
   Arinc429SignStatusMatrix,
   Arinc429Word,
@@ -4998,6 +4999,25 @@ export abstract class FMCMainDisplay implements FmsDataInterface, FmsDisplayInte
 
   public getDestinationElevation() {
     return Number.isFinite(this.landingElevation) ? this.landingElevation : 0;
+  }
+
+  /** @inheritdoc */
+  public isFinalAppSelected(): boolean {
+    const activePlan = this.flightPlanService.active;
+    switch (activePlan?.approach?.type) {
+      case ApproachType.Fms:
+      case ApproachType.Gps:
+      case ApproachType.Ndb:
+      case ApproachType.NdbDme:
+      case ApproachType.Rnav:
+      case ApproachType.Tacan:
+      case ApproachType.Vor:
+      case ApproachType.VorDme:
+      case ApproachType.Vortac:
+        return this.isFmTuningActive() && !activePlan.performanceData.isFlsSelected.get();
+      default:
+        return false;
+    }
   }
 
   public trySetManagedDescentSpeed(value: string, forPlan: FlightPlanIndex): boolean {

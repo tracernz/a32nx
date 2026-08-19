@@ -1,5 +1,5 @@
 // @ts-strict-ignore
-// Copyright (c) 2022-2024 FlyByWire Simulations
+// Copyright (c) 2022-2026 FlyByWire Simulations
 //
 // SPDX-License-Identifier: GPL-3.0
 
@@ -20,7 +20,7 @@ import { NavaidSelectionManager, VorSelectionReason } from '@fmgc/navigation/Nav
 import { NavaidTuner } from '@fmgc/navigation/NavaidTuner';
 import { NavigationProvider } from '@fmgc/navigation/NavigationProvider';
 import { RequiredPerformance } from '@fmgc/navigation/RequiredPerformance';
-import { EventBus, Subject, Subscribable } from '@microsoft/msfs-sdk';
+import { EventBus, MutableSubscribable, Subject, Subscribable } from '@microsoft/msfs-sdk';
 import { Coordinates } from 'msfs-geo';
 import { FlightPlanService } from '../flightplanning/FlightPlanService';
 import { NavigationDatabaseService } from '../flightplanning/NavigationDatabaseService';
@@ -67,6 +67,10 @@ export interface NavigationEvents {
   fms_nav_wind_direction: number | null;
   /** The selected wind speed in knots, or null if invalid/NCD */
   fms_nav_wind_speed: number | null;
+  /** The current ground speed in knots, or null if invalid/NCD. */
+  fms_nav_ground_speed: number | null;
+  /** The current RNP in nautical miles, or null when none. */
+  fms_nav_rnp: number | null;
 }
 
 export class Navigation implements NavigationProvider {
@@ -85,7 +89,7 @@ export class Navigation implements NavigationProvider {
 
   ppos: Coordinates = { lat: 0, long: 0 };
 
-  groundSpeed: Knots = 0;
+  public readonly groundSpeed: Subscribable<number> = Subject.create(null);
 
   private radioHeight: number | null = null;
 
@@ -190,6 +194,8 @@ export class Navigation implements NavigationProvider {
     this.windDirection.sub((v) => this.publisher.pub('fms_nav_wind_direction', v, false, true), true);
     this.windSpeed.sub((v) => this.publisher.pub('fms_nav_wind_speed', v, false, true), true);
 
+    this.groundSpeed.sub((v) => this.publisher.pub('fms_nav_ground_speed', v, false, true), true);
+
     this.nearbyAirportMonitor = NavigationDatabaseService.activeDatabase.createNearbyFacilityMonitor(
       NearbyFacilityType.Airport,
     );
@@ -199,6 +205,7 @@ export class Navigation implements NavigationProvider {
 
   update(deltaTime: number): void {
     this.requiredPerformance.update(deltaTime);
+    this.publisher.pub('fms_nav_rnp', this.requiredPerformance.activeRnp ?? null, false, true);
 
     this.updateAttHdgPosData();
     this.updateCurrentPerformance();
@@ -294,7 +301,7 @@ export class Navigation implements NavigationProvider {
   private updatePosition(): void {
     this.ppos.lat = SimVar.GetSimVarValue('PLANE LATITUDE', 'degree latitude');
     this.ppos.long = SimVar.GetSimVarValue('PLANE LONGITUDE', 'degree longitude');
-    this.groundSpeed = SimVar.GetSimVarValue('GPS GROUND SPEED', 'knots');
+    (this.groundSpeed as MutableSubscribable<number>).set(SimVar.GetSimVarValue('GPS GROUND SPEED', 'knots'));
 
     this.nearbyAirportMonitor.setLocation(this.ppos.lat, this.ppos.long);
   }

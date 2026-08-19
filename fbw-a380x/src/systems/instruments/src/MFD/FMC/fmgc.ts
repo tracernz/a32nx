@@ -1,5 +1,5 @@
 // @ts-strict-ignore
-// Copyright (c) 2023-2024 FlyByWire Simulations
+// Copyright (c) 2023-2026 FlyByWire Simulations
 // SPDX-License-Identifier: GPL-3.0
 
 import { FlightPlanService } from '@fmgc/flightplanning/FlightPlanService';
@@ -509,6 +509,15 @@ export class FmgcDataService implements Fmgc {
   /** In percentage. Null if not set */
   getPerformanceFactorPercent(): number | null {
     return this.data.fuelPenaltyPercentage.get(); // TODO add performance factor when implemented
+  }
+
+  /** @inheritdoc */
+  public isFinalAppSelected(): boolean {
+    return false;
+  }
+
+  getNavDataDateRange(): string {
+    return SimVar.GetGameVarValue('FLIGHT NAVDATA DATE RANGE', 'string');
   }
 
   /**

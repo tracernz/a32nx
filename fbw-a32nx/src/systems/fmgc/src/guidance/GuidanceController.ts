@@ -79,6 +79,8 @@ export interface Fmgc {
   getDepartureElevation(): Feet | null;
   getDestinationElevation(): Feet;
   getPerformanceFactorPercent(): number | null;
+  /** Whether FINAL APP is selected and available for the active plan approach. */
+  isFinalAppSelected(): boolean;
 }
 
 export class GuidanceController {

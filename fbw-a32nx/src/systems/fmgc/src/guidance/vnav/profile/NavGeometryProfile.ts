@@ -83,6 +83,7 @@ export enum VerticalCheckpointReason {
   Flaps2 = 'Flaps2',
   Flaps3 = 'Flaps3',
   FlapsFull = 'FlapsFull',
+  /** Missed approach point if procedure loaded, otherwise runway/airfield. */
   Landing = 'Landing',
 }
 
@@ -90,7 +91,8 @@ export interface VerticalCheckpoint {
   reason: VerticalCheckpointReason;
   distanceFromStart: NauticalMiles;
   secondsFromPresent: Seconds;
-  altitude: Feet;
+  /** Altitude in feet. */
+  altitude: number;
   remainingFuelOnBoard: number;
   speed: Knots;
   mach: Mach;
@@ -203,7 +205,8 @@ export class NavGeometryProfile extends BaseGeometryProfile {
     return this.checkpoints[this.checkpoints.length - 1];
   }
 
-  get finalDescentAngle(): Degrees {
+  /** Final descent angle in degrees, -ve = descent. */
+  get finalDescentAngle(): number {
     return this.constraintReader.finalDescentAngle;
   }
 

@@ -29,16 +29,44 @@ import {
   VerticalCheckpointReason,
   VerticalWaypointPrediction,
 } from './profile/NavGeometryProfile';
-import { LegType, MathUtils } from '@flybywiresim/fbw-sdk';
-import { EventBus } from '@microsoft/msfs-sdk';
+import {
+  Arinc429SignStatusMatrix,
+  FmArinc429OutputWord,
+  LegType,
+  MathUtils,
+  RegisteredSimVar,
+} from '@flybywiresim/fbw-sdk';
+import { EventBus, SimVarValueType } from '@microsoft/msfs-sdk';
 import { FlightPlanIndex } from '../../flightplanning/FlightPlanManager';
 import { VnavConfig } from './VnavConfig';
 import { isLeg } from '../../flightplanning/legs/FlightPlanLeg';
+import { FinalDescentGuidance } from './descent/FinalDescentGuidance';
+import { DescentVerticalGuidanceState, VerticalGuidanceParameters } from './VerticalGuidanceParameters';
+import { RequestedVerticalMode } from '../ControlLaws';
 
 export class VnavDriver implements GuidanceComponent {
   version: number = 0;
 
   private listener = RegisterViewListener('JS_LISTENER_SIMVARS', null, true);
+
+  private readonly requestedVerticalModeVar = RegisteredSimVar.create(
+    'L:A32NX_FG_REQUESTED_VERTICAL_MODE',
+    SimVarValueType.Enum,
+  );
+  private readonly targetAltitudeVar = RegisteredSimVar.create('L:A32NX_FG_TARGET_ALTITUDE', SimVarValueType.Feet);
+  private readonly targetVerticalSpeedVar = RegisteredSimVar.create(
+    'L:A32NX_FG_TARGET_VERTICAL_SPEED',
+    SimVarValueType.Number,
+  );
+
+  private readonly pfdTargetAltitudeVar = RegisteredSimVar.create('L:A32NX_PFD_TARGET_ALTITUDE', SimVarValueType.Feet);
+  private readonly pfdLinearDeviationActiveVar = RegisteredSimVar.createBoolean('L:A32NX_PFD_LINEAR_DEVIATION_ACTIVE');
+  private readonly pfdVerticalProfileLatchedVar = RegisteredSimVar.createBoolean(
+    'L:A32NX_PFD_VERTICAL_PROFILE_LATCHED',
+  );
+
+  /** Word 124 */
+  private readonly vdevWord = new FmArinc429OutputWord('VDEV');
 
   private currentMcduSpeedProfile: McduSpeedProfile;
 
@@ -48,7 +76,9 @@ export class VnavDriver implements GuidanceComponent {
 
   private aircraftToDescentProfileRelation: AircraftToDescentProfileRelation;
 
-  private descentGuidance: DescentGuidance | LatchedDescentGuidance;
+  private readonly descentGuidance: DescentGuidance | LatchedDescentGuidance;
+
+  private readonly finalDescentGuidance: FinalDescentGuidance;
 
   private profileManager: VerticalProfileManager;
 
@@ -71,6 +101,15 @@ export class VnavDriver implements GuidanceComponent {
   private requestDescentProfileRecomputation: boolean = false;
 
   private prevMcduPredReadyToDisplay = false;
+
+  private readonly guidanceParams: VerticalGuidanceParameters = {
+    requestedVerticalMode: RequestedVerticalMode.None,
+    targetPressureAltitude: 0,
+    targetVerticalSpeed: 0,
+  };
+
+  private readonly isRnavAppToFgVar = RegisteredSimVar.createBoolean('L:A32NX_FG_RNAV_APP_SELECTED');
+  private readonly finalCanEngageToFgVar = RegisteredSimVar.createBoolean('L:A32NX_FG_FINAL_CAN_ENGAGE');
 
   constructor(
     private readonly bus: EventBus,
@@ -103,6 +142,12 @@ export class VnavDriver implements GuidanceComponent {
           this.atmosphericConditions,
         );
 
+    this.finalDescentGuidance = new FinalDescentGuidance(
+      this.bus,
+      computationParametersObserver,
+      this.atmosphericConditions,
+    );
+
     this.profileManager = new VerticalProfileManager(
       this.bus,
       this.flightPlanService,
@@ -115,6 +160,9 @@ export class VnavDriver implements GuidanceComponent {
   }
 
   init(): void {
+    this.finalDescentGuidance.finalAppSelected.sub((v) => this.isRnavAppToFgVar.set(v), true);
+    this.finalDescentGuidance.finalCanEngage.sub((v) => this.finalCanEngageToFgVar.set(v), true);
+
     console.log('[FMGC/Guidance] VnavDriver initialized!');
   }
 
@@ -123,6 +171,8 @@ export class VnavDriver implements GuidanceComponent {
   }
 
   update(deltaTime: number): void {
+    const destAtk = this.guidanceController.getAlongTrackDistanceToDestination();
+
     try {
       const { flightPhase } = this.computationParametersObserver.get();
 
@@ -131,12 +181,66 @@ export class VnavDriver implements GuidanceComponent {
       if (flightPhase >= FmgcFlightPhase.Takeoff) {
         this.updateHoldSpeed();
         this.updateDescentSpeedGuidance();
-        this.descentGuidance.update(deltaTime, this.guidanceController.getAlongTrackDistanceToDestination());
+        this.descentGuidance.update(deltaTime, destAtk);
       }
     } catch (e) {
       console.error('[FMS] Failed to calculate vertical profile. See exception below.');
       console.error(e);
     }
+
+    this.finalDescentGuidance.update(destAtk);
+
+    const descentState = this.descentGuidance.getState();
+    const finalDescentState = this.finalDescentGuidance.getState();
+
+    const finalIsActive = finalDescentState === DescentVerticalGuidanceState.ProvidingGuidance;
+    let guidanceIsFinal = finalIsActive;
+    let guidanceValid = false;
+    if (
+      finalIsActive ||
+      (finalDescentState === DescentVerticalGuidanceState.Observing &&
+        descentState !== DescentVerticalGuidanceState.ProvidingGuidance)
+    ) {
+      guidanceValid = this.finalDescentGuidance.getGuidanceParameters(this.guidanceParams);
+      guidanceIsFinal = finalIsActive || guidanceValid;
+    }
+
+    // Never feed normal DES guidance into an active FINAL mode.
+    if (!guidanceValid && !finalIsActive) {
+      guidanceValid = this.descentGuidance.getGuidanceParameters(this.guidanceParams);
+    }
+
+    if (!guidanceValid) {
+      this.resetGuidanceParams();
+    }
+
+    this.requestedVerticalModeVar.set(this.guidanceParams.requestedVerticalMode);
+    this.targetAltitudeVar.set(this.guidanceParams.targetPressureAltitude);
+    this.targetVerticalSpeedVar.set(this.guidanceParams.targetVerticalSpeed);
+
+    if (guidanceIsFinal) {
+      this.pfdLinearDeviationActiveVar.set(false);
+      this.pfdTargetAltitudeVar.set(0);
+      this.pfdVerticalProfileLatchedVar.set(false);
+    } else {
+      this.pfdLinearDeviationActiveVar.set(this.descentGuidance.isLinearDeviationActive());
+      this.pfdTargetAltitudeVar.set(this.descentGuidance.getPfdTargetAltitude());
+      this.pfdVerticalProfileLatchedVar.set(this.descentGuidance.isLinearDeviationLatched());
+    }
+
+    const finalVdev = this.finalDescentGuidance.getVDev();
+    if (this.finalDescentGuidance.isArmedOrActive() && finalVdev !== null) {
+      this.vdevWord.setBnrValue(finalVdev, Arinc429SignStatusMatrix.NormalOperation, 8, 1, -1);
+    } else {
+      this.vdevWord.setBnrValue(0, Arinc429SignStatusMatrix.NoComputedData, 8, 1, -1);
+    }
+    this.vdevWord.writeToSimVarIfDirty();
+  }
+
+  private resetGuidanceParams(): void {
+    this.guidanceParams.requestedVerticalMode = RequestedVerticalMode.None;
+    this.guidanceParams.targetPressureAltitude = 0;
+    this.guidanceParams.targetVerticalSpeed = 0;
   }
 
   recompute(geometry: Geometry): void {
@@ -169,6 +273,7 @@ export class VnavDriver implements GuidanceComponent {
 
       // TODO: This doesn't really do much, the profile is automatically updated by reference.
       this.descentGuidance.updateProfile(this.profileManager.descentProfile);
+      this.finalDescentGuidance.updateProfile(this.profileManager.descentProfile);
       this.decelPoint = this.profileManager.descentProfile.findVerticalCheckpoint(VerticalCheckpointReason.Decel);
     }
 
@@ -198,6 +303,7 @@ export class VnavDriver implements GuidanceComponent {
       this.constraintReader.reset();
       this.aircraftToDescentProfileRelation.reset();
       this.descentGuidance.reset();
+      this.finalDescentGuidance.reset();
       this.currentMcduSpeedProfile = new McduSpeedProfile(this.computationParametersObserver, 0, [], []);
       this.decelPoint = null;
       this.lastParameters = null;
