@@ -1,5 +1,5 @@
 // @ts-strict-ignore
-// Copyright (c) 2022-2024 FlyByWire Simulations
+// Copyright (c) 2022-2026 FlyByWire Simulations
 // SPDX-License-Identifier: GPL-3.0
 
 import { TurnDirection } from '../../navdata/shared/types/ProcedureLeg';
@@ -553,6 +553,37 @@ export class MathUtils {
    */
   public static round(value: number, quantum = 1): number {
     return Math.round(value / quantum) * quantum;
+  }
+
+  /**
+   * Linearly interpolates a value between two points.
+   * @param x The input value.
+   * @param x0 The input value at the start point.
+   * @param x1 The input value at the end point.
+   * @param y0 The output value at the start point.
+   * @param y1 The output value at the end point.
+   * @param clampStart Whether to clamp values before the start point to the start output.
+   * @param clampEnd Whether to clamp values after the end point to the end output.
+   */
+  public static lerp(
+    x: number,
+    x0: number,
+    x1: number,
+    y0: number,
+    y1: number,
+    clampStart = true,
+    clampEnd = true,
+  ): number {
+    let fraction = (x - x0) / (x1 - x0);
+
+    if (clampStart) {
+      fraction = Math.max(0, fraction);
+    }
+    if (clampEnd) {
+      fraction = Math.min(1, fraction);
+    }
+
+    return y0 + fraction * (y1 - y0);
   }
 
   public static interpolate(x: number, x0: number, x1: number, y0: number, y1: number): number {
