@@ -516,6 +516,7 @@ export class FlightPlan<P extends FlightPlanPerformanceData = FlightPlanPerforma
   ): void {
     const referenceAltitude = airport?.location.alt;
 
+    // FIXME none of this stuff should really be in FlightPlan
     if (referenceAltitude !== undefined) {
       plan.setPerformanceData(
         'defaultThrustReductionAltitude',
@@ -529,9 +530,12 @@ export class FlightPlan<P extends FlightPlanPerformanceData = FlightPlanPerforma
         'defaultEngineOutAccelerationAltitude',
         referenceAltitude + parseInt(NXDataStore.getLegacy('CONFIG_ENG_OUT_ACCEL_ALT', '1500')),
       );
-      if (plan.performanceData.defaultGroundTemperature !== undefined) {
+      if (
+        'defaultGroundTemperature' in plan.performanceData &&
+        plan.performanceData.defaultGroundTemperature !== undefined
+      ) {
         plan.setPerformanceData(
-          'defaultGroundTemperature',
+          'defaultGroundTemperature' as any,
           Math.round(AeroMath.isaTemperature(referenceAltitude * 0.3048)),
         );
       }

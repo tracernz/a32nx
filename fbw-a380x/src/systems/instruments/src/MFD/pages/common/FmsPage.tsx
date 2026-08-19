@@ -34,7 +34,7 @@ import {
 } from '../../shared/utils';
 import { ReadonlyFlightPlan } from '@fmgc/flightplanning/plans/ReadonlyFlightPlan';
 import { AlternateFlightPlan } from '@fmgc/flightplanning/plans/AlternateFlightPlan';
-import { FlightPlanPerformanceData } from '@fmgc/flightplanning/plans/performance/FlightPlanPerformanceData';
+import { A380FlightPlanPerformanceData } from '@fmgc/flightplanning/plans/performance/A380FlightPlanPerformanceData';
 
 export abstract class FmsPage<T extends AbstractMfdPageProps = AbstractMfdPageProps> extends DisplayComponent<T> {
   // Make sure to collect all subscriptions here, otherwise page navigation doesn't work.
@@ -46,9 +46,9 @@ export abstract class FmsPage<T extends AbstractMfdPageProps = AbstractMfdPagePr
 
   protected readonly activePageTitle = Subject.create<string>('');
 
-  public loadedFlightPlan: ReadonlyFlightPlan<FlightPlanPerformanceData> | null = null;
+  public loadedFlightPlan: ReadonlyFlightPlan<A380FlightPlanPerformanceData> | null = null;
 
-  public loadedAlternateFlightPlan: AlternateFlightPlan<FlightPlanPerformanceData> | null = null;
+  public loadedAlternateFlightPlan: AlternateFlightPlan<A380FlightPlanPerformanceData> | null = null;
 
   protected readonly loadedFlightPlanIndex = Subject.create<FlightPlanIndex>(FlightPlanIndex.Active);
 

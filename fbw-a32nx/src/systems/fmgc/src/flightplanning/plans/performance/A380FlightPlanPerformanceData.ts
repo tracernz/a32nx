@@ -21,7 +21,10 @@ import { FlightPlanWindEntry, WindVector } from '../../data/wind';
 
 // TODO this should go to fbw-a380x/ once FMS is moved to fbw-common
 export class A380FlightPlanPerformanceData implements FlightPlanPerformanceData {
-  private readonly subscriptions: Map<keyof FlightPlanPerformanceDataProperties & string, Subscription> = new Map();
+  private readonly subscriptions: Map<
+    keyof FlightPlanPerformanceDataProperties<A380FlightPlanPerformanceData> & string,
+    Subscription
+  > = new Map();
 
   constructor(defaultTaxiFuel = 1.5) {
     this.defaultTaxiFuel.set(defaultTaxiFuel);
@@ -35,7 +38,7 @@ export class A380FlightPlanPerformanceData implements FlightPlanPerformanceData 
     return cloned as this;
   }
 
-  protected assignFieldsFromOriginal(cloned: FlightPlanPerformanceData): FlightPlanPerformanceData {
+  protected assignFieldsFromOriginal(cloned: A380FlightPlanPerformanceData): A380FlightPlanPerformanceData {
     cloned.v1.set(this.v1.get());
     cloned.vr.set(this.vr.get());
     cloned.v2.set(this.v2.get());
@@ -119,6 +122,7 @@ export class A380FlightPlanPerformanceData implements FlightPlanPerformanceData 
     cloned.approachBaroMinimum.set(this.approachBaroMinimum.get());
     cloned.approachRadioMinimum.set(this.approachRadioMinimum.get());
     cloned.approachFlapsThreeSelected.set(this.approachFlapsThreeSelected.get());
+    cloned.isFlsSelected.set(this.isFlsSelected.get());
     cloned.estimatedTakeoffTime.set(this.estimatedTakeoffTime.get());
     cloned.estimatedTakeoffTimeExpired.set(this.estimatedTakeoffTimeExpired.get());
 
@@ -140,7 +144,7 @@ export class A380FlightPlanPerformanceData implements FlightPlanPerformanceData 
     return cloned;
   }
 
-  pipeTo(other: FlightPlanPerformanceData, isBeforeEngineStart: boolean): void {
+  pipeTo(other: A380FlightPlanPerformanceData, isBeforeEngineStart: boolean): void {
     this.pipe('cruiseFlightLevel', this.cruiseFlightLevel, other.cruiseFlightLevel);
     this.pipe('cruiseTemperaturePilotEntry', this.cruiseTemperaturePilotEntry, other.cruiseTemperaturePilotEntry);
     this.pipe('pilotTropopause', this.pilotTropopause, other.pilotTropopause);
@@ -153,6 +157,7 @@ export class A380FlightPlanPerformanceData implements FlightPlanPerformanceData 
     );
     this.pipe('pilotFinalHoldingFuel', this.pilotFinalHoldingFuel, other.pilotFinalHoldingFuel);
     this.pipe('pilotFinalHoldingTime', this.pilotFinalHoldingTime, other.pilotFinalHoldingTime);
+    this.pipe('isFlsSelected', this.isFlsSelected, other.isFlsSelected);
 
     if (other.cruiseTemperatureIsaTemp) {
       this.pipe('cruiseTemperatureIsaTemp', this.cruiseTemperatureIsaTemp, other.cruiseTemperatureIsaTemp);
@@ -184,7 +189,7 @@ export class A380FlightPlanPerformanceData implements FlightPlanPerformanceData 
   }
 
   protected pipe<T>(
-    key: keyof FlightPlanPerformanceDataProperties & string,
+    key: keyof FlightPlanPerformanceDataProperties<A380FlightPlanPerformanceData> & string,
     from: MutableSubscribable<T>,
     to: MutableSubscribable<T>,
   ): void {
@@ -198,7 +203,9 @@ export class A380FlightPlanPerformanceData implements FlightPlanPerformanceData 
     this.subscriptions.clear();
   }
 
-  public hasSubscription(key: keyof FlightPlanPerformanceDataProperties & string): boolean {
+  public hasSubscription(
+    key: keyof FlightPlanPerformanceDataProperties<A380FlightPlanPerformanceData> & string,
+  ): boolean {
     return this.subscriptions.has(key);
   }
 
@@ -858,30 +865,69 @@ export class A380FlightPlanPerformanceData implements FlightPlanPerformanceData 
 
   readonly estimatedTakeoffTimeExpired = Subject.create<boolean | null>(false);
 
+  /**
+   * The number of passengers on this flight, or null if not set.
+   */
   readonly paxNumber = Subject.create<number | null>(null);
 
+  /**
+   * The selected power settting for takeoff (TOGA, FLEX, DERATED), or null if not set.
+   */
   readonly takeoffPowerSetting = Subject.create<TakeoffPowerSetting>(TakeoffPowerSetting.TOGA);
 
+  /**
+   * The selected derated power settting for takeoff, or null if not set.
+   */
   readonly takeoffDeratedSetting = Subject.create<TakeoffDerated>(TakeoffDerated.D01);
 
+  /**
+   * The GW CG for takeoff, or null if not set.
+   */
   readonly takeoffThsFor = Subject.create<number | null>(null);
 
+  /**
+   * The packs setting for takeoff, or null if not set.
+   */
   readonly takeoffPacks = Subject.create<TakeoffPacks | null>(TakeoffPacks.ON);
 
+  /**
+   * The anti ice setting for takeoff, or null if not set.
+   */
   readonly takeoffAntiIce = Subject.create<TakeoffAntiIce | null>(TakeoffAntiIce.OFF);
 
+  /**
+   * The NADP activation status, or null if not set.
+   */
   readonly noiseEnabled = Subject.create<boolean>(false);
 
+  /**
+   * The NADP N1 setting, or null if not set.
+   */
   readonly noiseN1 = Subject.create<number | null>(null);
 
+  /**
+   * The NADP speed setting in knots, or null if not set.
+   */
   readonly noiseSpeed = Subject.create<number | null>(null);
 
+  /**
+   * The NADP end altitude in feet, or null if not set.
+   */
   readonly noiseEndAltitude = Subject.create<number | null>(null);
 
+  /**
+   * The cost index mode (ECON or LRC), or null if not set.
+   */
   readonly costIndexMode = Subject.create<CostIndexMode | null>(CostIndexMode.ECON);
 
+  /**
+   * The derated climb setting, or null if not set.
+   */
   readonly climbDerated = Subject.create<ClimbDerated | null>(ClimbDerated.NONE);
 
+  /**
+   * The descent cabin rate setting in ft/min, or null if not set.
+   */
   readonly descentCabinRate = Subject.create<number | null>(-350);
 
   /**
@@ -899,7 +945,10 @@ export class A380FlightPlanPerformanceData implements FlightPlanPerformanceData 
    */
   readonly alternateWind = Subject.create<WindVector | null>(null);
 
-  serialize(): SerializedFlightPlanPerformanceData {
+  /** @inheritdoc */
+  public readonly isFlsSelected = Subject.create(false);
+
+  public serialize(): A380SerializedFlightPlanPerformanceData {
     return {
       cruiseFlightLevel: this.cruiseFlightLevel.get(),
       cruiseTemperatureIsaTemp: this.cruiseTemperatureIsaTemp.get(),
@@ -988,6 +1037,24 @@ export class A380FlightPlanPerformanceData implements FlightPlanPerformanceData 
       climbWindEntries: this.climbWindEntries.get(),
       descentWindEntries: this.descentWindEntries.get(),
       alternateWind: this.alternateWind.get(),
+      isFlsSelected: this.isFlsSelected.get(),
     };
   }
+}
+
+export interface A380SerializedFlightPlanPerformanceData extends SerializedFlightPlanPerformanceData {
+  cruiseTemperatureIsaTemp?: number | null;
+  paxNumber?: number | null;
+  takeoffPowerSetting?: TakeoffPowerSetting | null;
+  takeoffDeratedSetting?: TakeoffDerated | null;
+  takeoffThsFor?: number | null;
+  takeoffPacks?: TakeoffPacks | null;
+  takeoffAntiIce?: TakeoffAntiIce | null;
+  noiseEnabled?: boolean;
+  noiseN1?: number | null;
+  noiseSpeed?: number | null;
+  noiseEndAltitude?: number | null;
+  costIndexMode?: CostIndexMode | null;
+  climbDerated?: ClimbDerated | null;
+  descentCabinRate?: number | null;
 }

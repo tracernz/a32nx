@@ -572,6 +572,9 @@ export interface FlightPlanPerformanceData {
 
   readonly estimatedTakeoffTimeExpired: MutableSubscribable<boolean | null>;
 
+  /** Whether FLS is selected for the final descent. */
+  readonly isFlsSelected: MutableSubscribable<boolean>;
+
   // ----------------------------------------------
   // A380 specific
   // ----------------------------------------------
@@ -668,10 +671,12 @@ export interface FlightPlanPerformanceData {
   pipeTo(other: FlightPlanPerformanceData, isBeforeEngineStart: boolean): void;
 }
 
-export type FlightPlanPerformanceDataProperties = {
-  [K in keyof FlightPlanPerformanceData as FlightPlanPerformanceData[K] extends MutableSubscribable<any> | undefined
-    ? K
-    : never]: FlightPlanPerformanceData[K] extends MutableSubscribable<infer T> ? MutableSubscribable<T> : never;
+export type FlightPlanPerformanceDataProperties<P extends FlightPlanPerformanceData = FlightPlanPerformanceData> = {
+  [K in keyof P as P[K] extends MutableSubscribable<any> | undefined ? K : never]: P[K] extends MutableSubscribable<
+    infer T
+  >
+    ? MutableSubscribable<T>
+    : never;
 };
 
 export interface SerializedFlightPlanPerformanceData {
@@ -769,6 +774,9 @@ export interface SerializedFlightPlanPerformanceData {
 
   estimatedTakeoffTime: number | null;
   estimatedTakeoffTimeExpired: boolean | null;
+
+  isFlsSelected: boolean;
+
   // A380 specific
   paxNumber?: number | null;
   takeoffPowerSetting?: TakeoffPowerSetting | null;

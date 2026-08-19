@@ -30,6 +30,7 @@ import { EfisInterface } from '@fmgc/efis/EfisInterface';
 import { FuelPredictions } from '@fmgc/flightplanning/fuel/FuelPredictions';
 import { WindEntry } from '@fmgc/flightplanning/data/wind';
 import { Accessible } from '@microsoft/msfs-sdk';
+import { A320FlightPlanPerformanceData } from '@fmgc/flightplanning/plans/performance/A320FlightPlanPerformanceData';
 
 export type LskCallback = (
   /** The scratchpad content when the LSK was pressed. */
@@ -97,8 +98,10 @@ interface LegacyFmsPageDrawingInterface {
 }
 
 interface LegacyFmsPageFmsInterface extends FmsDataInterface, FmsDisplayInterface {
-  getFlightPlan(index: FlightPlanIndex): ReturnType<FlightPlanInterface['get']>;
-  getAlternateFlightPlan(index: FlightPlanIndex): ReturnType<FlightPlanInterface['get']>['alternateFlightPlan'];
+  getFlightPlan(index: FlightPlanIndex): ReturnType<FlightPlanInterface<A320FlightPlanPerformanceData>['get']>;
+  getAlternateFlightPlan(
+    index: FlightPlanIndex,
+  ): ReturnType<FlightPlanInterface<A320FlightPlanPerformanceData>['get']>['alternateFlightPlan'];
   eraseTemporaryFlightPlan(callback?: typeof EmptyCallback.Void): void;
   insertTemporaryFlightPlan(callback?: typeof EmptyCallback.Void): Promise<void>;
   updateConstraints(): void;

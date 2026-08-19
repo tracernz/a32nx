@@ -29,7 +29,7 @@ export class A320FlightPlanPerformanceData implements FlightPlanPerformanceData 
     return cloned as this;
   }
 
-  protected assignFieldsFromOriginal(cloned: FlightPlanPerformanceData): FlightPlanPerformanceData {
+  protected assignFieldsFromOriginal(cloned: A320FlightPlanPerformanceData): FlightPlanPerformanceData {
     cloned.v1.set(this.v1.get());
     cloned.vr.set(this.vr.get());
     cloned.v2.set(this.v2.get());
@@ -118,6 +118,7 @@ export class A320FlightPlanPerformanceData implements FlightPlanPerformanceData 
     cloned.approachBaroMinimum.set(this.approachBaroMinimum.get());
     cloned.approachRadioMinimum.set(this.approachRadioMinimum.get());
     cloned.approachFlapsThreeSelected.set(this.approachFlapsThreeSelected.get());
+    cloned.isFlsSelected.set(this.isFlsSelected.get());
     cloned.estimatedTakeoffTime.set(this.estimatedTakeoffTime.get());
     cloned.estimatedTakeoffTimeExpired.set(this.estimatedTakeoffTimeExpired.get());
 
@@ -153,6 +154,7 @@ export class A320FlightPlanPerformanceData implements FlightPlanPerformanceData 
     );
     other.pipe('pilotFinalHoldingFuel', this.pilotFinalHoldingFuel, other.pilotFinalHoldingFuel);
     other.pipe('pilotFinalHoldingTime', this.pilotFinalHoldingTime, other.pilotFinalHoldingTime);
+    other.pipe('isFlsSelected', this.isFlsSelected, other.isFlsSelected);
 
     if (isBeforeEngineStart) {
       other.pipe('zeroFuelWeight', this.zeroFuelWeight, other.zeroFuelWeight);
@@ -199,16 +201,24 @@ export class A320FlightPlanPerformanceData implements FlightPlanPerformanceData 
 
   readonly isCruiseTemperaturePilotEntered = this.cruiseTemperaturePilotEntry.map((it) => it !== null);
 
+  /**
+   * Default ground temperature; Unit: degrees C; Null if not set.
+   */
   readonly defaultGroundTemperature = Subject.create<number | null>(null);
 
+  /**
+   * Pilot ground temperature; Unit: degrees C; Null if not set.
+   */
   readonly pilotGroundTemperature = Subject.create<number | null>(null);
 
+  /** Ground temperature. Default if no pilot entry, pilot entered otherwise; Unit: degrees C; Null if not set. */
   readonly groundTemperature = MappedSubject.create(
     ([pilotGroundTemperature, defaultGroundTemperature]) => pilotGroundTemperature ?? defaultGroundTemperature,
     this.pilotGroundTemperature,
     this.defaultGroundTemperature,
   );
 
+  /** Whether ground temperature is pilot entered. */
   readonly groundTemperatureIsPilotEntered = MappedSubject.create(
     ([pilotGroundTemperature]) => pilotGroundTemperature !== null,
     this.pilotGroundTemperature,
@@ -866,7 +876,9 @@ export class A320FlightPlanPerformanceData implements FlightPlanPerformanceData 
 
   readonly estimatedTakeoffTimeExpired = Subject.create<boolean | null>(false);
 
-  serialize(): SerializedFlightPlanPerformanceData {
+  public readonly isFlsSelected = Subject.create(false);
+
+  serialize(): A320SerializedFlightPlanPerformanceData {
     return {
       cruiseFlightLevel: this.cruiseFlightLevel.get(),
       cruiseTemperaturePilotEntry: this.cruiseTemperaturePilotEntry.get(),
@@ -942,6 +954,12 @@ export class A320FlightPlanPerformanceData implements FlightPlanPerformanceData 
       alternateWind: this.alternateWind.get(),
       estimatedTakeoffTime: this.estimatedTakeoffTime.get(),
       estimatedTakeoffTimeExpired: this.estimatedTakeoffTimeExpired.get(),
+      isFlsSelected: this.isFlsSelected.get(),
     };
   }
+}
+
+export interface A320SerializedFlightPlanPerformanceData extends SerializedFlightPlanPerformanceData {
+  defaultGroundTemperature?: number | null;
+  pilotGroundTemperature?: number | null;
 }

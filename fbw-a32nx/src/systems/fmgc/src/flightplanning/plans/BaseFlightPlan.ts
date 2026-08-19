@@ -273,10 +273,6 @@ export abstract class BaseFlightPlan<P extends FlightPlanPerformanceData = Fligh
     return this.firstMissedApproachLegIndex - this.approachSegment.legCount;
   }
 
-  get firstApproachViaLegIndex() {
-    return this.firstMissedApproachLegIndex - this.approachSegment.legCount - this.approachViaSegment.legCount;
-  }
-
   get firstEnrouteLegIndex(): number {
     return this.lastEnrouteLegIndex - this.enrouteSegment.legCount;
   }
@@ -3083,12 +3079,14 @@ export abstract class BaseFlightPlan<P extends FlightPlanPerformanceData = Fligh
   }
 }
 
-export interface SerializedFlightPlan {
+export interface SerializedFlightPlan<
+  S extends SerializedFlightPlanPerformanceData = SerializedFlightPlanPerformanceData,
+> {
   activeLegIndex: number;
 
   fixInfo: readonly FixInfoEntry[];
 
-  performanceData?: SerializedFlightPlanPerformanceData;
+  performanceData?: S;
 
   originAirport: string;
   originRunway: string;

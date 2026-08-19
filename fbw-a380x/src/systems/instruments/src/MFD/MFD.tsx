@@ -36,6 +36,7 @@ import { MfdFmsPageNotAvail } from './pages/FMS/MfdFmsPageNotAvail';
 import { InteractionMode } from '../MsfsAvionicsCommon/UiWidgets/InputField';
 import { AtcDatalinkSystem } from './ATCCOM/AtcDatalinkSystem';
 import { FlightPlanInterface } from '@fmgc/flightplanning/FlightPlanInterface';
+import { A380FlightPlanPerformanceData } from '@fmgc/flightplanning/plans/performance/A380FlightPlanPerformanceData';
 
 export const getDisplayIndex = () => {
   const url = document.getElementsByTagName('a380x-mfd')[0].getAttribute('url');
@@ -47,7 +48,7 @@ export interface AbstractMfdPageProps extends ComponentProps {
   bus: EventBus;
   mfd: FmsDisplayInterface & MfdDisplayInterface;
   fmcService: FmcServiceInterface;
-  flightPlanInterface: FlightPlanInterface;
+  flightPlanInterface: FlightPlanInterface<A380FlightPlanPerformanceData>;
 }
 
 export interface AtccomMfdPageProps extends ComponentProps {

@@ -14,6 +14,7 @@ import { GuidanceController } from '@fmgc/guidance/GuidanceController';
 import { DataManager } from '@fmgc/flightplanning/DataManager';
 import { FlightPlanIndex } from '@fmgc/flightplanning/FlightPlanManager';
 import { FlightPlanInterface } from '@fmgc/flightplanning/FlightPlanInterface';
+import { A380FlightPlanPerformanceData } from '@fmgc/flightplanning/plans/performance/A380FlightPlanPerformanceData';
 
 export enum FmcOperatingModes {
   Master,
@@ -53,7 +54,7 @@ export interface FmcInterface extends FlightPhaseManagerProxyInterface, FmsDataI
   /**
    * FlightPlanService interface
    */
-  get flightPlanInterface(): FlightPlanInterface;
+  get flightPlanInterface(): FlightPlanInterface<A380FlightPlanPerformanceData>;
 
   /**
    * FMGC data class, handles most data which didn't make it into the flight plan performance data so far
