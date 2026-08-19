@@ -2161,7 +2161,15 @@ bool FlyByWireInterface::updateFcu(double sampleTime) {
   fcu.modelInputs.in.discrete_inputs.fo_efis_inputs.efis_navaid_2 = static_cast<efis_navaid_selection>(idFcuEisPanelNavaid2Mode[1]->get());
   fcu.modelInputs.in.discrete_inputs.fo_efis_inputs.baro_is_inhg = idFcuEisPanelBaroIsInhg[1]->get();
 
-  fcu.modelInputs.in.discrete_inputs.afs_inputs = simConnectInterface.getFcuAfsPanelInputs();
+  auto afsInputs = simConnectInterface.getFcuAfsPanelInputs();
+  const bool finalActive =
+      Arinc429Utils::bitFromValueOr(fmgcsBusOutputs[0].fmgc_a_bus.discrete_word_1, 23, false) ||
+      Arinc429Utils::bitFromValueOr(fmgcsBusOutputs[1].fmgc_a_bus.discrete_word_1, 23, false);
+  if (finalActive && !idFmFinalCanEngage->get()) {
+    // FIXME: The FG should transition out of FINAL and engage V/S when FINAL guidance becomes invalid.
+    afsInputs.vs_fpa_knob.pulled = true;
+  }
+  fcu.modelInputs.in.discrete_inputs.afs_inputs = afsInputs;
   fcu.modelInputs.in.discrete_inputs.afs_inputs.alt_increment_1000 = idFcuAfsPanelAltIncrement1000->get();
 
   fcu.modelInputs.in.bus_inputs.fmgc_1_bus = fmgcsBusOutputs[0].fmgc_a_bus;
