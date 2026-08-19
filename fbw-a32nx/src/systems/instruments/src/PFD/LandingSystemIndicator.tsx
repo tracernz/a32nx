@@ -1,4 +1,4 @@
-// Copyright (c) 2021-2023 FlyByWire Simulations
+// Copyright (c) 2021-2026 FlyByWire Simulations
 //
 // SPDX-License-Identifier: GPL-3.0
 
@@ -15,13 +15,19 @@ import {
   Subscription,
   VNode,
 } from '@microsoft/msfs-sdk';
-import { ArincEventBus, Arinc429RegisterSubject, MathUtils } from '@flybywiresim/fbw-sdk';
+import {
+  ArincEventBus,
+  Arinc429RegisterSubject,
+  MathUtils,
+  Arinc429LocalVarConsumerSubject,
+} from '@flybywiresim/fbw-sdk';
 
 import { FcuBus } from './shared/FcuBusProvider';
 import { Arinc429Values } from './shared/ArincValueProvider';
 import { PFDSimvars } from './shared/PFDSimvarPublisher';
 import { LagFilter } from './PFDUtils';
 import { getDisplayIndex } from './PFD';
+import { FmsVars } from '../MsfsAvionicsCommon/providers/FmsDataPublisher';
 
 // FIXME true ref
 export class LandingSystem extends DisplayComponent<{ bus: ArincEventBus; instrument: BaseInstrument }> {
@@ -35,6 +41,7 @@ export class LandingSystem extends DisplayComponent<{ bus: ArincEventBus; instru
   private readonly xtkValid = this.xtk.map((v) => Math.abs(v) > 0);
 
   private readonly ldevRequest = ConsumerSubject.create(null, false);
+  private readonly vdevRequest = ConsumerSubject.create(null, false);
 
   private readonly altitude2 = Arinc429RegisterSubject.createEmpty();
 
@@ -50,7 +57,11 @@ export class LandingSystem extends DisplayComponent<{ bus: ArincEventBus; instru
     this.xtkValid,
   );
 
-  private readonly isVDevHidden = Subject.create(true);
+  private readonly isVDevHidden = MappedSubject.create(
+    ([lsVisible, request]) => lsVisible || !request,
+    this.lsVisible,
+    this.vdevRequest,
+  );
 
   onAfterRender(node: VNode): void {
     super.onAfterRender(node);
@@ -66,9 +77,12 @@ export class LandingSystem extends DisplayComponent<{ bus: ArincEventBus; instru
     });
 
     this.ldevRequest.setConsumer(sub.on(getDisplayIndex() === 1 ? 'ldevRequestLeft' : 'ldevRequestRight'));
+    this.vdevRequest.setConsumer(sub.on(getDisplayIndex() === 1 ? 'vdevRequestLeft' : 'vdevRequestRight'));
 
     this.xtk.setConsumer(sub.on('xtk'));
   }
+
+  // TODO flashing reminder
 
   render(): VNode {
     return (
@@ -576,27 +590,35 @@ class VDevIndicator extends DisplayComponent<{ bus: ArincEventBus }> {
 
   private VDevSymbol = FSComponent.createRef<SVGPathElement>();
 
+  private readonly vdev = Arinc429LocalVarConsumerSubject.create(null);
+  // FIXME failure indication?
+
   onAfterRender(node: VNode): void {
     super.onAfterRender(node);
 
-    // TODO use correct simvar once RNAV is implemented
-    const deviation = 0;
-    const dots = deviation / 100;
+    this.vdev.sub((vdev) => {
+      if (vdev.isInvalid()) {
+        this.VDevSymbolLower.instance.style.visibility = 'hidden';
+        this.VDevSymbolUpper.instance.style.visibility = 'hidden';
+        this.VDevSymbol.instance.style.visibility = 'hidden';
+      } else if (vdev.value >= 1) {
+        this.VDevSymbolLower.instance.style.visibility = 'inherit';
+        this.VDevSymbolUpper.instance.style.visibility = 'hidden';
+        this.VDevSymbol.instance.style.visibility = 'hidden';
+      } else if (vdev.value <= -1) {
+        this.VDevSymbolLower.instance.style.visibility = 'hidden';
+        this.VDevSymbolUpper.instance.style.visibility = 'inherit';
+        this.VDevSymbol.instance.style.visibility = 'hidden';
+      } else {
+        this.VDevSymbolLower.instance.style.visibility = 'hidden';
+        this.VDevSymbolUpper.instance.style.visibility = 'hidden';
+        this.VDevSymbol.instance.style.visibility = 'inherit';
+        this.VDevSymbol.instance.style.transform = `translate3d(0px, ${(2 * vdev.value * 30.238) / 2}px, 0px)`;
+      }
+    }, true);
 
-    if (dots > 2) {
-      this.VDevSymbolLower.instance.style.visibility = 'visible';
-      this.VDevSymbolUpper.instance.style.visibility = 'hidden';
-      this.VDevSymbol.instance.style.visibility = 'hidden';
-    } else if (dots < -2) {
-      this.VDevSymbolLower.instance.style.visibility = 'hidden';
-      this.VDevSymbolUpper.instance.style.visibility = 'visible';
-      this.VDevSymbol.instance.style.visibility = 'hidden';
-    } else {
-      this.VDevSymbolLower.instance.style.visibility = 'hidden';
-      this.VDevSymbolUpper.instance.style.visibility = 'hidden';
-      this.VDevSymbol.instance.style.visibility = 'visible';
-      this.VDevSymbol.instance.style.transform = `translate3d(0px, ${(dots * 30.238) / 2}px, 0px)`;
-    }
+    const sub = this.props.bus.getSubscriber<FmsVars>();
+    this.vdev.setConsumer(sub.on('vdev'));
   }
 
   render(): VNode {

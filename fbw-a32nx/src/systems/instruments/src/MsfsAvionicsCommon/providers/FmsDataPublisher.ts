@@ -1,4 +1,4 @@
-// Copyright (c) 2021-2024 FlyByWire Simulations
+// Copyright (c) 2021-2026 FlyByWire Simulations
 //
 // SPDX-License-Identifier: GPL-3.0
 
@@ -12,6 +12,8 @@ export interface FmsVars {
   targetAltitude: number;
   verticalProfileLatched: boolean;
   rnp: number;
+  /** Raw A429 FINAL vertical deviation word. */
+  vdev: number;
   toWptIdent0: number;
   toWptIdent1: number;
   toWptBearing: number;
@@ -43,6 +45,13 @@ export class FmsDataPublisher extends SwitchableSimVarProvider<FmsVars, 'L' | 'R
           { name: (_side) => 'L:A32NX_PFD_VERTICAL_PROFILE_LATCHED', type: SimVarValueType.Bool },
         ],
         ['rnp', { name: (side) => `L:A32NX_FMGC_${side}_RNP`, type: SimVarValueType.Number }],
+        [
+          'vdev',
+          {
+            name: (side) => `L:A32NX_FM${side === 'L' ? 1 : 2}_VDEV`,
+            type: SimVarValueType.Enum,
+          },
+        ],
         ['toWptIdent0', { name: (side) => `L:A32NX_EFIS_${side}_TO_WPT_IDENT_0`, type: SimVarValueType.Number }],
         ['toWptIdent1', { name: (side) => `L:A32NX_EFIS_${side}_TO_WPT_IDENT_1`, type: SimVarValueType.Number }],
         ['toWptBearing', { name: (side) => `L:A32NX_EFIS_${side}_TO_WPT_BEARING`, type: SimVarValueType.Degree }],

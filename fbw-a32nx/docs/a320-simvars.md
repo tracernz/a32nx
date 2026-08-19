@@ -1980,6 +1980,20 @@ In the variables below, {number} should be replaced with one item in the set: { 
         - L
         - R
 
+- A32NX_FMGC_{side}_VDEV_REQUEST
+    - Bool
+    - Indicates whether the FMGC is requesting V/DEV to be displayed on the PFD
+    - {side}
+        - L
+        - R
+
+- A32NX_FM{number}_VDEV
+    - ARINC 429 word
+    - FINAL vertical deviation, normalized to the range -1 to 1
+    - {number}
+        - 1
+        - 2
+
 - A32NX_FMGC_L_RNP
     - Number (nautical miles)
     - The active Required Navigation Performance

@@ -1,4 +1,4 @@
-// Copyright (c) 2024 FlyByWire Simulations
+// Copyright (c) 2024-2026 FlyByWire Simulations
 // SPDX-License-Identifier: GPL-3.0
 
 import {
@@ -38,9 +38,11 @@ export interface BaseFmsData {
   /** Symbols displayed on VD */
   vdSymbols_L: VdSymbol[];
   vdSymbols_R: VdSymbol[];
+  /** Raw A429 V/DEV, +/- 1. */
+  fms_vdev: number;
 }
 
-type IndexedTopics = 'fmZeroFuelWeight' | 'fmZeroFuelWeightCg' | 'fmLandingElevation';
+type IndexedTopics = 'fmZeroFuelWeight' | 'fmZeroFuelWeightCg' | 'fmLandingElevation' | 'fms_vdev';
 type FmsIndexedEvents = {
   [P in keyof Pick<BaseFmsData, IndexedTopics> as IndexedEventType<P>]: BaseFmsData[P];
 };
@@ -60,6 +62,7 @@ export class FmsDataPublisher extends SimVarPublisher<FmsData> {
       'fmLandingElevation',
       { name: 'L:A32NX_FM#index#_LANDING_ELEVATION', type: SimVarValueType.Number, indexed: true },
     ],
+    ['fms_vdev', { name: 'L:A32NX_FM#index#_VDEV', type: SimVarValueType.Enum, indexed: true }],
   ]);
 
   public constructor(bus: EventBus) {

@@ -1,9 +1,10 @@
 // @ts-strict-ignore
-// Copyright (c) 2022 FlyByWire Simulations
+// Copyright (c) 2022-2026 FlyByWire Simulations
 // SPDX-License-Identifier: GPL-3.0
 
 import { FmgcFlightPhase } from '@shared/flightphase';
 import { FlightArea } from './FlightArea';
+import { Arinc429Register } from '@flybywiresim/fbw-sdk';
 import { ConsumerValue, EventBus } from '@microsoft/msfs-sdk';
 import { FlightPhaseManagerEvents } from '@fmgc/flightphase';
 import { FlightPlanService } from '../flightplanning/FlightPlanService';
@@ -26,7 +27,13 @@ export class RequiredPerformance {
 
   requestLDev = false;
 
+  requestVDev = false;
+
   manualRnp = false;
+
+  private readonly fmgcDiscreteWord1 = Arinc429Register.empty();
+
+  private readonly fmgcDiscreteWord3 = Arinc429Register.empty();
 
   private readonly flightPhase = ConsumerValue.create(
     this.bus.getSubscriber<FlightPhaseManagerEvents>().on('fmgc_flight_phase'),
@@ -41,7 +48,9 @@ export class RequiredPerformance {
   update(_deltaTime: number): void {
     this.updateAutoRnp();
 
-    this.updateLDev();
+    const finalArmedOrActive = this.isFinalArmedOrActive();
+    this.updateLDev(finalArmedOrActive);
+    this.updateVDev(finalArmedOrActive);
   }
 
   setPilotRnp(rnp): void {
@@ -86,17 +95,33 @@ export class RequiredPerformance {
     SimVar.SetSimVarValue('L:A32NX_FMGC_R_RNP', 'number', rnp ?? 0);
   }
 
-  private updateLDev(): void {
+  private isFinalArmedOrActive(): boolean {
+    const discreteWord1 = this.fmgcDiscreteWord1.setFromSimVar('L:A32NX_FMGC_1_DISCRETE_WORD_1');
+    const discreteWord3 = this.fmgcDiscreteWord3.setFromSimVar('L:A32NX_FMGC_1_DISCRETE_WORD_3');
+
+    return discreteWord3.bitValueOr(23, false) || discreteWord1.bitValueOr(23, false);
+  }
+
+  private updateLDev(finalArmedOrActive: boolean): void {
     const area = this.flightPlanService.active.calculateActiveArea();
     const ldev =
-      area !== FlightArea.Enroute &&
-      area !== FlightArea.Oceanic &&
-      this.activeRnp < 0.305 &&
-      this.flightPhase.get() >= FmgcFlightPhase.Takeoff;
+      finalArmedOrActive ||
+      (area !== FlightArea.Enroute &&
+        area !== FlightArea.Oceanic &&
+        this.activeRnp < 0.305 &&
+        this.flightPhase.get() >= FmgcFlightPhase.Takeoff);
     if (ldev !== this.requestLDev) {
       this.requestLDev = ldev;
       SimVar.SetSimVarValue('L:A32NX_FMGC_L_LDEV_REQUEST', 'bool', this.requestLDev);
       SimVar.SetSimVarValue('L:A32NX_FMGC_R_LDEV_REQUEST', 'bool', this.requestLDev);
+    }
+  }
+
+  private updateVDev(finalArmedOrActive: boolean): void {
+    if (finalArmedOrActive !== this.requestVDev) {
+      this.requestVDev = finalArmedOrActive;
+      SimVar.SetSimVarValue('L:A32NX_FMGC_L_VDEV_REQUEST', 'bool', this.requestVDev);
+      SimVar.SetSimVarValue('L:A32NX_FMGC_R_VDEV_REQUEST', 'bool', this.requestVDev);
     }
   }
 }

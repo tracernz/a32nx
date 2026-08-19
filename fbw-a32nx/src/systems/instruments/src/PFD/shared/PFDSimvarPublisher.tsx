@@ -1,4 +1,4 @@
-// Copyright (c) 2021-2023 FlyByWire Simulations
+// Copyright (c) 2021-2026 FlyByWire Simulations
 //
 // SPDX-License-Identifier: GPL-3.0
 
@@ -81,7 +81,8 @@ export type PFDSimvars = AdirsSimVars &
     xtk: number;
     ldevRequestLeft: boolean;
     ldevRequestRight: boolean;
-    vdev: number;
+    vdevRequestLeft: boolean;
+    vdevRequestRight: boolean;
     landingElevation1Raw: number;
     landingElevation2Raw: number;
     fac1Healthy: boolean;
@@ -249,7 +250,8 @@ export enum PFDVars {
   xtk = 'L:A32NX_FG_CROSS_TRACK_ERROR',
   ldevLeft = 'L:A32NX_FMGC_L_LDEV_REQUEST',
   ldevRight = 'L:A32NX_FMGC_R_LDEV_REQUEST',
-  vdev = 'L:A32NX_FM_VDEV',
+  vdevRequestLeft = 'L:A32NX_FMGC_L_VDEV_REQUEST',
+  vdevRequestRight = 'L:A32NX_FMGC_R_VDEV_REQUEST',
   landingElevation1Raw = 'L:A32NX_FM1_LANDING_ELEVATION',
   landingElevation2Raw = 'L:A32NX_FM2_LANDING_ELEVATION',
   fac1Healthy = 'L:A32NX_FAC_1_HEALTHY',
@@ -422,7 +424,8 @@ export class PFDSimvarPublisher extends UpdatableSimVarPublisher<PFDSimvars> {
     ['xtk', { name: PFDVars.xtk, type: SimVarValueType.NM }],
     ['ldevRequestLeft', { name: PFDVars.ldevLeft, type: SimVarValueType.Bool }],
     ['ldevRequestRight', { name: PFDVars.ldevRight, type: SimVarValueType.Bool }],
-    ['vdev', { name: PFDVars.vdev, type: SimVarValueType.Number }],
+    ['vdevRequestLeft', { name: PFDVars.vdevRequestLeft, type: SimVarValueType.Bool }],
+    ['vdevRequestRight', { name: PFDVars.vdevRequestRight, type: SimVarValueType.Bool }],
     ['landingElevation1Raw', { name: PFDVars.landingElevation1Raw, type: SimVarValueType.Number }],
     ['landingElevation2Raw', { name: PFDVars.landingElevation2Raw, type: SimVarValueType.Number }],
     ['fac1Healthy', { name: PFDVars.fac1Healthy, type: SimVarValueType.Bool }],
